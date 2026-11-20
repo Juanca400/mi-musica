@@ -84,3 +84,7 @@ Comprueban consultas y paginación de ambas APIs, fallos de instancia, elección
 ### Diagnóstico de «Un Sueño»
 
 La canción de la captura se encontró en Invidious (`3aws_FqP8OE`). Al solicitar bytes del audio con redirecciones, el servidor respondió HTTP 403 y contenido HTML en lugar de audio. Piped devolvió `LOGIN_REQUIRED` para el mismo ID. La corrección del reproductor maneja esos rechazos e intenta la alternativa disponible; no elimina el bloqueo del proveedor.
+
+## Prueba de SoundCloud y YouTube.js
+
+El directorio [backend/](backend/README.md) contiene un servidor de prueba para `soundcloud-v2` y `youtubei.js`. SoundCloud entregó audio real en la prueba; YouTube.js no pudo conectarse desde la red del entorno. El servidor está preparado, pero **no está alojado ni conectado a la página de GitHub Pages**. Su documentación explica los endpoints y el despliegue con Python/Node o contenedor.

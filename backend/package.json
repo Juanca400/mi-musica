@@ -1,0 +1,6 @@
+{
+  "name": "mi-musica-gateway",
+  "private": true,
+  "type": "module",
+  "dependencies": { "youtubei.js": "18.3.0", "undici": "8.12.4" }
+}
