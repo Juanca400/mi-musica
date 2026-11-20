@@ -30,69 +30,24 @@ En el reproductor, el botón **🎤 Letra** muestra la letra de la canción (de 
 Si está sincronizada, la línea actual se resalta y al tocar una línea la canción salta a ese momento.
 En las canciones de la biblioteca la letra se guarda para verla sin internet.
 
-## Buscar en internet (pantalla Buscar)
+## Fuentes disponibles
 
-- **Invidious** (fuente inicial): busca en YouTube; al tocar un resultado se solicita un stream de audio compatible con el navegador.
-- **Piped**: búsqueda con el filtro musical y paginación mediante continuaciones. Usa el mismo reproductor de audio.
-- **Catálogo**: fragmentos de iTunes de 30 segundos.
-- **Archivo**: álbumes con licencia libre de Internet Archive. Las descargas disponibles se guardan en la biblioteca.
-- **Radio**: emisoras en vivo de Radio Browser, con selección de país.
+Se retiraron SoundCloud, YouTube.js, Piped, Invidious, iTunes y los servidores de prueba. También se retiraron el widget, el soporte HLS de esas integraciones, sus endpoints y el servidor Python/Node de prueba. No se altera la base de datos de canciones guardadas.
 
-JioSaavn y su servidor anterior se retiraron de las búsquedas y del reproductor.
+Se conservan:
 
-## Piped e Invidious: integración experimental
+- **Biblioteca**: archivos locales, importación, búsqueda, favoritos y eliminación.
+- **Reproductor**: mini reproductor, controles, posición, aleatorio, repetición, letras y controles del sistema.
+- **Archivo**: álbumes de música libre de Internet Archive, con guardado cuando esté disponible. No es un catálogo comercial mundial.
+- **Radio**: emisoras en vivo, con filtro por país. No permite elegir cualquier canción a demanda.
+- **Búsquedas recientes**: hasta ocho búsquedas de Archivo y Radio, guardadas localmente y con opción de borrado.
 
-`sources.js` implementa los contratos de [Piped](https://docs.piped.video/docs/api-documentation/) e [Invidious](https://docs.invidious.io/api/). No usa un reproductor de video ni descarga estas canciones a la biblioteca. Resuelve el audio al iniciar cada canción, prefiere AAC/M4A para Safari y solo acepta formatos de audio HTTPS compatibles.
+## Catálogo comercial completo pendiente
 
-Instancias públicas predeterminadas:
+No hay un nuevo catálogo comercial conectado. Las alternativas oficiales comprobadas para reproducir canciones completas dentro de una web son [Apple Music con MusicKit](https://developer.apple.com/musickit/) y [Spotify con Web Playback SDK](https://developer.spotify.com/documentation/web-playback-sdk/howtos/web-app-player). Requieren suscripción del oyente y configuración de una aplicación de desarrollador. No se verificó un servidor público gratuito que sustituya esos requisitos ni ofrezca todo el catálogo.
 
-- Invidious: `https://yt.chocolatemoo53.com`
-- Piped: `https://pipedapi.ducks.party` y `https://api.piped.private.coffee`
+La [versión privada de Sites](https://mi-musica-online.edgedshore6.chatgpt.site) conserva las mismas herramientas y también retira las integraciones anteriores. Cada dominio conserva por separado su biblioteca en el navegador.
 
-Si un servidor no entrega formatos de audio, se prueban las otras instancias incluidas, hasta tres solicitudes de siete segundos. Si un enlace de audio es rechazado al comenzar la reproducción, el reproductor intenta otra instancia, con un máximo de tres enlaces y doce segundos para iniciar cada uno. Los permisos de reproducción del navegador no disparan cambios de servidor. Al agotar los intentos se muestra un aviso persistente, se libera el audio fallido y se permite reintentar desde el aviso o el mini reproductor. No se implementa evasión de CAPTCHA, inicio de sesión, acceso restringido ni controles de protección.
+## Créditos
 
-### Estado de la verificación real
-
-Las búsquedas reales funcionaron con CORS en las tres instancias anteriores y devolvieron canciones de Shakira. La reproducción completa **no quedó verificada**:
-
-- Las dos instancias de Piped devolvieron `LOGIN_REQUIRED` al consultar audio de la canción probada.
-- Invidious devolvió formatos de audio, pero la solicitud parcial del stream (siguiendo el redireccionamiento de su proxy) respondió HTTP 403.
-
-La integración puede mostrar resultados sin que haya audio reproducible. No se promete catálogo completo, ausencia permanente de anuncios ni reproducción en segundo plano con el iPhone bloqueado. Esta última requiere prueba en el dispositivo.
-
-En **Ajustes → Servidores de música** se puede configurar una instancia HTTPS propia compatible. Dejar los campos vacíos restaura los valores públicos. Las direcciones se guardan solo en el navegador; no deben contener usuario, contraseña, consultas ni fragmentos. GitHub Pages sigue sirviendo una web estática, sin un backend propio.
-
-## Herramientas conservadas
-
-- Inicio con colección, favoritas y últimas canciones agregadas.
-- Biblioteca local, importación, búsqueda, favoritos y eliminación.
-- Mini reproductor y reproductor completo con posición, aleatorio, repetición, letras y controles de bloqueo.
-- Calidad del audio en línea (96, 160 o 320 kbps como objetivo, según los formatos disponibles).
-- Ocho búsquedas recientes de Piped/Invidious, guardadas localmente y con opción de borrado.
-- Descargas de Archivo cuando están disponibles, Radio por país y Catálogo.
-
-## Interfaz y créditos
-
-La interfaz adapta la paleta esmeralda, superficies translúcidas, tarjetas y navegación de Melotune. Se conserva la marca Mi Música. Créditos y licencia: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-## Pruebas
-
-`node --test tests/sources.test.cjs`
-
-Comprueban consultas y paginación de ambas APIs, fallos de instancia, elección de audio compatible, configuración HTTPS, exclusión de streams de video y actualización de servidor. Son pruebas con respuestas simuladas; no certifican la disponibilidad de las instancias públicas.
-
-### Diagnóstico de «Un Sueño»
-
-La canción de la captura se encontró en Invidious (`3aws_FqP8OE`). Al solicitar bytes del audio con redirecciones, el servidor respondió HTTP 403 y contenido HTML en lugar de audio. Piped devolvió `LOGIN_REQUIRED` para el mismo ID. La corrección del reproductor maneja esos rechazos e intenta la alternativa disponible; no elimina el bloqueo del proveedor.
-
-## Prueba de SoundCloud y YouTube.js
-
-El directorio [backend/](backend/README.md) contiene un servidor de prueba para `soundcloud-v2` y `youtubei.js`. SoundCloud entregó audio real en la prueba; YouTube.js no pudo conectarse desde la red del entorno. El servidor está preparado, pero **no está alojado ni conectado a la página de GitHub Pages**. Su documentación explica los endpoints y el despliegue con Python/Node o contenedor.
-
-## Versión alojada con SoundCloud
-
-[Mi Música Online](https://mi-musica-online.edgedshore6.chatgpt.site) es una versión privada en Sites, con la página y la API en el mismo dominio. Requiere iniciar sesión con la cuenta propietaria de ChatGPT. SoundCloud es la fuente inicial; YouTube.js permanece experimental.
-
-La API desplegada se comprobó con «Un Sueño»: búsqueda 200 (18 resultados), resolución 200, manifiesto HLS 200 y bytes de audio 206 (`audio/mp4`). La reproducción en navegador y con iPhone bloqueado sigue pendiente de comprobar; el navegador de QA no pudo abrirse en este entorno.
-
-El alojamiento ejecuta una adaptación JavaScript del servidor: `soundcloud.py` se usó en la prueba previa de Python y YouTube.js se importa en el Worker. El nuevo origen tiene almacenamiento de navegador independiente; las canciones locales existentes permanecen en GitHub Pages. El contenedor de `backend/` es otra opción de despliegue y no es el proceso alojado en Sites.
+La interfaz adapta el estilo de Melotune. Véase [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

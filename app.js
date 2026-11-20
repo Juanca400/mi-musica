@@ -348,16 +348,11 @@ function sortSongs() {
 /* ================= Internet ================= */
 const REGION = (() => { const r = (navigator.language || '').split('-')[1]; return r && /^[a-z]{2}$/i.test(r) ? r.toUpperCase() : 'US'; })();
 const HINTS = {
-  invidious: 'Búsqueda en YouTube mediante Invidious. Solo audio. La reproducción depende de la instancia y puede fallar aunque aparezcan resultados.',
-  piped: 'Búsqueda musical mediante Piped. Solo audio. Algunas instancias están bloqueadas por YouTube; si no suena, prueba Invidious.',
-  itunes: 'Busca cualquier canción del catálogo de iTunes. Se escuchan fragmentos de 30 segundos.',
   free: 'Álbumes completos con licencia libre (Internet Archive). Toca ⬇ para guardarlas y oírlas sin internet.',
   radio: 'Emisoras en vivo de todo el mundo. Busca por nombre o género: salsa, vallenato, rock, noticias…',
 };
-const PLACEHOLDERS = { invidious: 'Buscar canción o artista en Invidious', piped: 'Buscar canción o artista en Piped', itunes: 'Buscar canción o artista', free: 'Buscar género, artista o álbum', radio: 'Buscar emisora o género' };
-let netSrc = 'invidious';
-const onlinePages = {};
-const isOnlineSource = source => source === 'piped' || source === 'invidious';
+const PLACEHOLDERS = { free: 'Buscar género, artista o álbum', radio: 'Buscar emisora o género' };
+let netSrc = 'free';
 let netBusy = false;
 let netItems = [];
 let netStatus = '';
@@ -378,71 +373,18 @@ async function getJSON(url, ms = 15000) {
   } finally { clearTimeout(tm); }
 }
 
-// Consultas directas a las instancias; no se envían credenciales ni se guarda audio remoto.
-const onlineEndpoints = {};
-for (const provider of ['piped', 'invidious']) {
-  try { const value = store.get(provider + 'Server', ''); if (value) onlineEndpoints[provider] = MusicSources.baseURL(value); } catch {}
-}
-let onlineClient = makeOnlineClient();
-function makeOnlineClient() {
-  return MusicSources.createClient({ request: getJSON, endpoints: onlineEndpoints,
-    canPlayType: mime => audio.canPlayType(mime) });
-}
-let onlineQuality = store.get('onlineQuality', '160');
-if (!['96', '160', '320'].includes(onlineQuality)) onlineQuality = '160';
-const savedHistory = store.get('onlineHistory', []);
-let onlineHistory = Array.isArray(savedHistory) ? savedHistory.filter(q => typeof q === 'string' && q.trim()).slice(0, 8) : [];
-function renderOnlineHistory() {
-  $('onlineHistory').replaceChildren(...onlineHistory.map(q => {
+const savedSearches = store.get('netHistory', []);
+let netHistory = Array.isArray(savedSearches) ? savedSearches.filter(q => typeof q === 'string' && q.trim()).slice(0, 8) : [];
+function renderSearchHistory() {
+  $('netHistory').replaceChildren(...netHistory.map(q => {
     const option = document.createElement('option'); option.value = q; return option;
   }));
-  $('clearOnlineHistory').classList.toggle('hidden', !onlineHistory.length);
+  $('clearSearchHistory').classList.toggle('hidden', !netHistory.length);
 }
-$('onlineQuality').value = onlineQuality;
-$('onlineQuality').addEventListener('change', e => {
-  if (!['96', '160', '320'].includes(e.target.value)) return;
-  onlineQuality = e.target.value; store.set('onlineQuality', onlineQuality);
+$('clearSearchHistory').addEventListener('click', () => {
+  netHistory = []; store.set('netHistory', netHistory); renderSearchHistory();
 });
-$('clearOnlineHistory').addEventListener('click', () => {
-  onlineHistory = []; store.set('onlineHistory', onlineHistory); renderOnlineHistory();
-});
-renderOnlineHistory();
-for (const provider of ['piped', 'invidious']) {
-  $(provider + 'Server').value = onlineEndpoints[provider] || '';
-}
-$('serverForm').addEventListener('submit', e => {
-  e.preventDefault();
-  try {
-    const values = {};
-    for (const provider of ['piped', 'invidious']) {
-      const value = $(provider + 'Server').value.trim();
-      if (value) values[provider] = MusicSources.baseURL(value);
-    }
-    for (const provider of ['piped', 'invidious']) {
-      if (values[provider]) onlineEndpoints[provider] = values[provider]; else delete onlineEndpoints[provider];
-      store.set(provider + 'Server', values[provider] || '');
-      delete onlinePages[provider]; delete netCache[provider]; delete netLoaded[provider];
-    }
-    ++netToken; netBusy = false;
-    if (isOnlineSource(netSrc)) { netItems = []; netStatus = ''; $('netQ').value = ''; }
-    onlineClient = makeOnlineClient();
-    $('serverStatus').textContent = 'Servidores guardados. Vuelve a Buscar para probarlos.';
-  } catch (err) { $('serverStatus').textContent = err.message; }
-});
-
-async function searchItunes(q) {
-  const j = await getJSON(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=50&country=${REGION}`);
-  return (j.results || []).filter(x => x.previewUrl).map(x => ({
-    kind: 'preview',
-    id: 'it' + x.trackId,
-    title: x.trackName,
-    artist: x.artistName,
-    thumb: x.artworkUrl100,
-    coverUrl: (x.artworkUrl100 || '').replace('100x100', '600x600'),
-    src: x.previewUrl,
-    link: x.trackViewUrl,
-  }));
-}
+renderSearchHistory();
 
 async function searchFree(q) {
   const clean = q.replace(/[^\p{L}\p{N}\s'-]/gu, ' ').trim();
@@ -584,55 +526,42 @@ async function searchRadio(q) {
     }));
 }
 
-async function netSearch(q, append = false) {
+async function netSearch(q) {
   const token = ++netToken;
   const source = netSrc;
-  const previous = append ? onlinePages[source] : null;
   netBusy = true;
   netAlbum = null; netPrev = null;
-  if (!append) netItems = [];
-  netStatus = q || !isOnlineSource(source) ? 'Buscando…' : '';
-  if (isOnlineSource(source) && !append) delete onlinePages[source];
+  netItems = []; netStatus = 'Buscando…';
   renderNet();
   try {
-    const fn = { itunes: searchItunes, free: searchFree, radio: searchRadio }[source];
-    const result = isOnlineSource(source) ? await onlineClient.search(source, q, previous) : await fn(q);
+    const fn = { free: searchFree, radio: searchRadio }[source];
+    const items = await fn(q);
     if (token !== netToken) return;
-    const items = isOnlineSource(source) ? result.items : result;
-    if (isOnlineSource(source)) onlinePages[source] = result;
-    const seen = new Set(append ? netItems.map(t => t.id) : []);
-    netItems = append ? netItems.concat(items.filter(t => !seen.has(t.id) && seen.add(t.id))) : items;
-    netStatus = netItems.length || isOnlineSource(source) && !q ? ''
+    netItems = items;
+    netStatus = items.length ? ''
       : source === 'radio' && radioCountry ? `No hay emisoras disponibles${q ? ' con esa búsqueda' : ''} en ${countryName(radioCountry)}. Prueba con otro país o con "Todos los países".`
       : 'Sin resultados. Prueba con otras palabras.';
-  } catch (e) {
+  } catch {
     if (token !== netToken) return;
-    netStatus = navigator.onLine === false ? 'Sin conexión a internet.'
-      : isOnlineSource(source) ? e.message
-      : 'No se pudo buscar. Intenta de nuevo.';
+    netStatus = navigator.onLine === false ? 'Sin conexión a internet.' : 'No se pudo buscar. Intenta de nuevo.';
   }
   netBusy = false;
   netCache[source] = { items: netItems, status: netStatus, q };
   renderNet();
 }
 
-$('netMore').addEventListener('click', () => {
-  const page = onlinePages[netSrc];
-  if (isOnlineSource(netSrc) && page?.hasMore && !netBusy) netSearch(page.query, true);
-});
-
 function openNet() {
   $('netQ').placeholder = PLACEHOLDERS[netSrc];
-  $('netQ').setAttribute('list', isOnlineSource(netSrc) ? 'onlineHistory' : '');
   $('radioOpts').classList.toggle('hidden', netSrc !== 'radio');
   if (netSrc === 'radio') loadCountries();
-  if (!netLoaded[netSrc] && netSrc !== 'itunes') { netLoaded[netSrc] = true; netSearch(''); }
+  if (!netLoaded[netSrc]) { netLoaded[netSrc] = true; netSearch($('netQ').value.trim()); }
   else renderNet();
 }
 
 document.querySelectorAll('.sources button').forEach(b => b.addEventListener('click', () => {
   if (netSrc === b.dataset.src) return;
   netCache[netSrc] = { items: netAlbum && netPrev ? netPrev.items : netItems, status: netAlbum || netBusy ? '' : netStatus, q: $('netQ').value };
+  if (netBusy) delete netLoaded[netSrc];
   netSrc = b.dataset.src;
   ++netToken;
   netBusy = false;
@@ -649,11 +578,9 @@ $('netForm').addEventListener('submit', e => {
   e.preventDefault();
   const q = $('netQ').value.trim();
   $('netQ').blur();
-  if (!q && netSrc === 'itunes') return;
-  if (isOnlineSource(netSrc) && q) {
-    onlineHistory = [q, ...onlineHistory.filter(x => x.toLocaleLowerCase() !== q.toLocaleLowerCase())].slice(0, 8);
-    store.set('onlineHistory', onlineHistory);
-    renderOnlineHistory();
+  if (q) {
+    netHistory = [q, ...netHistory.filter(x => x.toLocaleLowerCase() !== q.toLocaleLowerCase())].slice(0, 8);
+    store.set('netHistory', netHistory); renderSearchHistory();
   }
   netLoaded[netSrc] = true;
   netSearch(q);
@@ -663,9 +590,6 @@ const isSaved = t => songs.some(s => s.source === t.id);
 
 function renderNet() {
   if (tab !== 'net') return;
-  $('onlineActions').classList.toggle('hidden', !isOnlineSource(netSrc));
-  $('netMore').classList.toggle('hidden', !isOnlineSource(netSrc) || !onlinePages[netSrc]?.hasMore);
-  $('netMore').disabled = netBusy;
   $('netHint').textContent = netStatus || (netAlbum ? '' : HINTS[netSrc]);
   let html = '';
   if (netAlbum) {
@@ -682,8 +606,6 @@ function renderNet() {
         : isSaved(t) ? `<span class="icon-btn fav-on" aria-label="Guardada">${ICON.check}</span>`
         : `<button class="icon-btn" data-act="save" aria-label="Guardar">${ICON.download}</button>`;
     }
-    else if (t.kind === 'online') actions = `<a class="tag" href="${esc(t.link)}" target="_blank" rel="noopener noreferrer" aria-label="Abrir ${esc(t.title)} en YouTube">${t.provider === 'piped' ? 'PIPED' : 'INVIDIOUS'}</a>`;
-    else if (t.kind === 'preview') actions = '<span class="tag">30 s</span>';
     else if (t.kind === 'radio') actions = '<span class="tag live">EN VIVO</span>';
     return `<div class="row${playing ? ' playing' : ''}" data-i="${i}">
       <button class="row-main" data-act="${t.kind === 'album' ? 'open' : 'play'}">
@@ -782,78 +704,10 @@ function unlockAudio() {
 }
 
 let loadToken = 0;
-let onlinePhase = 'idle';
-let onlineStartController = null;
-function setOnlineNotice(message = '') {
-  $('playbackNotice').classList.toggle('hidden', !message);
-  $('playbackMessage').textContent = message;
-  $('playbackOriginal').href = current?.kind === 'online' ? current.link : 'https://www.youtube.com/';
-}
-function startOnlineAudio(url, autoplay, signal) {
-  return new Promise((resolve, reject) => {
-    let timer;
-    const finish = err => {
-      clearTimeout(timer);
-      audio.removeEventListener('error', failed);
-      audio.removeEventListener('loadedmetadata', loaded);
-      signal.removeEventListener('abort', cancelled);
-      if (err) reject(err); else resolve();
-    };
-    const failed = () => finish(new Error('El servidor rechazó el audio.'));
-    const loaded = () => { if (!autoplay) finish(); };
-    const cancelled = () => finish(new DOMException('Carga cancelada', 'AbortError'));
-    if (signal.aborted) { cancelled(); return; }
-    audio.addEventListener('error', failed);
-    audio.addEventListener('loadedmetadata', loaded);
-    signal.addEventListener('abort', cancelled, { once: true });
-    timer = setTimeout(() => finish(new Error('El audio no respondió a tiempo.')), 12000);
-    audio.src = url;
-    audio.load();
-    if (autoplay) audio.play().then(() => finish(), err => finish(err));
-  });
-}
-async function loadOnline(t, token, autoplay) {
-  const controller = new AbortController();
-  onlineStartController = controller;
-  const isCurrent = () => token === loadToken && !controller.signal.aborted;
-  onlinePhase = 'loading'; current = t;
-  audio.pause(); audio.removeAttribute('src'); audio.load();
-  if (audioURL) { URL.revokeObjectURL(audioURL); audioURL = null; }
-  setOnlineNotice(); updatePlayerUI(); render(); renderNet(); updateMediaSession();
-  toast('Comprobando audio en los servidores…', 0);
-  try {
-    const stream = await MusicSources.playWithFallback({
-      track: t, quality: onlineQuality, isCurrent,
-      resolve: (track, quality, excluded) => onlineClient.resolve(track, quality, excluded),
-      start: url => startOnlineAudio(url, autoplay, controller.signal),
-    });
-    if (!stream || !isCurrent()) return;
-    t.src = stream.url; t.streamEndpoint = stream.endpoint;
-    onlinePhase = 'ready';
-    $('toast').classList.add('hidden');
-    updatePlayerUI(); renderNet();
-  } catch (err) {
-    if (!isCurrent()) return;
-    $('toast').classList.add('hidden');
-    if (err.name === 'NotAllowedError') {
-      onlinePhase = 'ready';
-      toast('Toca ▶ para permitir la reproducción', 4000);
-    } else {
-      onlinePhase = 'failed';
-      audio.pause(); audio.removeAttribute('src'); audio.load();
-      setOnlineNotice('Las fuentes encontraron la canción, pero sus servidores rechazaron el audio. No está disponible para reproducir aquí ahora.');
-    }
-    updatePlayerUI(); renderNet();
-  }
-}
 async function loadAndPlay(autoplay = true) {
   const t = queue[qi];
   if (!t) return;
   const token = ++loadToken;
-  onlineStartController?.abort();
-  if (onlinePhase === 'loading') $('toast').classList.add('hidden');
-  onlinePhase = 'idle'; setOnlineNotice();
-  if (t.kind === 'online') { await loadOnline(t, token, autoplay); return; }
   let src;
   if (isLib(t)) {
     const blob = await dbGetFile(t.id);
@@ -861,10 +715,13 @@ async function loadAndPlay(autoplay = true) {
     if (!blob) { toast('No se encontró el archivo de esta canción'); return; }
     src = URL.createObjectURL(blob);
     store.set('last', t.id);
-  } else src = t.src;
+  } else {
+    src = t.src;
+  }
   if (audioURL) { URL.revokeObjectURL(audioURL); audioURL = null; }
   if (src.startsWith('blob:')) audioURL = src;
-  current = t; audio.src = src;
+  current = t;
+  audio.src = src;
   updatePlayerUI(); render(); renderNet(); updateMediaSession();
   if (autoplay) {
     try { await audio.play(); }
@@ -877,33 +734,16 @@ async function loadAndPlay(autoplay = true) {
 }
 
 audio.addEventListener('error', () => {
-  if (!current || !audio.getAttribute('src') || audio.src.startsWith('blob:') && !isLib(current)) return;
-  if (current.kind === 'online') {
-    if (onlinePhase === 'loading') return; // La carga actual intentará otra fuente.
-    onlinePhase = 'failed';
-    setOnlineNotice('El servidor interrumpió o rechazó el audio. Puedes reintentar; si vuelve a fallar, la canción no está disponible aquí.');
-    updatePlayerUI(); return;
-  }
-  toast(current.kind === 'radio' ? 'Esta emisora no está disponible ahora' : 'No se pudo cargar el audio', 4000);
+  if (!current || !audio.src || audio.src.startsWith('blob:') && !isLib(current)) return;
+  toast(current.kind === 'radio' ? 'Esta emisora no está disponible ahora' : 'No se pudo cargar el audio', 3000);
   updatePlayButtons();
 });
 
 function togglePlay() {
   if (!current) return;
-  if (current.kind === 'online' && onlinePhase === 'loading') return;
   unlockAudio();
-  if (current.kind === 'online' && (onlinePhase === 'failed' || !audio.getAttribute('src'))) { loadAndPlay(); return; }
-  if (audio.paused) audio.play().catch(err => {
-    if (current?.kind === 'online' && err.name !== 'AbortError') {
-      onlinePhase = 'failed';
-      setOnlineNotice(err.name === 'NotAllowedError' ? 'El navegador necesita permiso para reproducir. Toca Reintentar audio.' : 'El servidor rechazó el audio. Puedes reintentar o abrir la fuente original.');
-      updatePlayerUI();
-    }
-  }); else audio.pause();
+  if (audio.paused) audio.play().catch(() => {}); else audio.pause();
 }
-$('retryOnline').addEventListener('click', () => {
-  if (current?.kind === 'online' && onlinePhase !== 'loading') { unlockAudio(); loadAndPlay(); }
-});
 
 function pickNext() {
   if (!queue.length) return -1;
@@ -998,9 +838,7 @@ function updatePlayerUI() {
   $('miniArtist').textContent = sub;
   $('pTitle').textContent = t.title;
   $('pArtist').textContent = sub;
-  $('pLabel').textContent = t.kind === 'online' && onlinePhase === 'loading' ? 'Comprobando audio…'
-    : t.kind === 'online' && onlinePhase === 'failed' ? 'Audio no disponible'
-    : { preview: 'Vista previa · 30 s', free: 'Canción completa', radio: 'Radio en vivo', online: 'Solo audio · ' + (t.provider === 'piped' ? 'Piped' : 'Invidious') }[t.kind] || 'Reproduciendo';
+  $('pLabel').textContent = { free: 'Canción completa', radio: 'Radio en vivo' }[t.kind] || 'Reproduciendo';
   setCover($('miniCover'), t);
   setCover($('pCover'), t);
   $('pFav').classList.toggle('hidden', !isLib(t));
@@ -1012,9 +850,6 @@ function updatePlayerUI() {
     $('pSave').classList.toggle('fav-on', isSaved(t));
     $('pSave').classList.toggle('spin', saving.has(t.id));
   }
-  $('pLink').classList.toggle('hidden', !((t.kind === 'preview' || t.kind === 'online') && t.link));
-  $('pLink').textContent = t.kind === 'online' ? 'Abrir en YouTube' : 'Escuchar completa en Apple Music ↗';
-  if (t.link) $('pLink').href = t.link;
   updateSeekState();
   applyLyricsView();
 }

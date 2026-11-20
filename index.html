@@ -32,14 +32,6 @@
   </header>
 
   <main class="app-content">
-  <aside class="online-version">
-    <div><b>Mi Música con SoundCloud</b><p>Abre la nueva versión online con tu cuenta de ChatGPT. Tus canciones guardadas siguen disponibles en esta página.</p></div>
-    <a class="primary-btn" href="https://mi-musica-online.edgedshore6.chatgpt.site">Abrir versión online</a>
-  </aside>
-  <aside id="playbackNotice" class="playback-notice hidden" role="status">
-    <p id="playbackMessage"></p>
-    <div><button id="retryOnline" class="pill" type="button">Reintentar audio</button><a id="playbackOriginal" class="store-link" target="_blank" rel="noopener noreferrer">Abrir en YouTube</a></div>
-  </aside>
   <section id="home" aria-label="Inicio">
     <div class="home-hero">
       <div class="hero-copy"><span class="eyebrow">DALE PLAY A TU DÍA</span><h2>Tu música.<br>Tu momento.</h2><p>Lo que te gusta, siempre cerca.<br>Explora, guarda y vuelve a escuchar.</p><button class="primary-btn" data-go="net"><svg class="ui-icon"><use href="#i-search"/></svg>Descubrir música</button></div>
@@ -57,7 +49,6 @@
     <div class="explore-grid">
       <button class="explore-card radio-card" data-source="radio"><svg class="ui-icon"><use href="#i-radio"/></svg><b>Radio en vivo</b><span>Emisoras de todo el mundo</span></button>
       <button class="explore-card archive-card" data-source="free"><svg class="ui-icon"><use href="#i-library"/></svg><b>Archivo musical</b><span>Música libre para guardar</span></button>
-      <button class="explore-card catalog-card" data-source="itunes"><svg class="ui-icon"><use href="#i-search"/></svg><b>Explorar catálogo</b><span>Descubre y escucha fragmentos</span></button>
     </div>
   </section>
 
@@ -83,54 +74,26 @@
 
   <!-- Internet -->
   <section id="net" class="hidden" aria-label="Buscar música">
-    <div class="section-heading"><div><h2>Encuentra tu próximo favorito</h2><p>Canciones, artistas o una emisora para acompañarte.</p></div></div>
+    <div class="section-heading"><div><h2>Explora música libre y radio</h2><p>Archivo ofrece música libre y Radio, emisoras en vivo.</p></div></div>
     <div class="sources">
-      <button data-src="invidious" class="on">Invidious</button>
-      <button data-src="piped">Piped</button>
-      <button data-src="itunes">Catálogo</button>
-      <button data-src="free">Archivo</button>
+      <button data-src="free" class="on">Archivo</button>
       <button data-src="radio">Radio</button>
     </div>
     <form id="netForm" class="tools search-form" autocomplete="off">
-      <input id="netQ" type="search" list="onlineHistory" enterkeyhint="search" placeholder="Buscar canción o artista" aria-label="Buscar canción o artista">
+      <input id="netQ" type="search" list="netHistory" enterkeyhint="search" placeholder="Buscar canción o artista" aria-label="Buscar canción o artista">
       <button class="search-submit" type="submit" aria-label="Buscar"><svg class="ui-icon"><use href="#i-search"/></svg></button>
     </form>
-    <datalist id="onlineHistory"></datalist>
+    <datalist id="netHistory"></datalist>
     <div id="radioOpts" class="tools hidden">
       <select id="country" aria-label="País"></select>
     </div>
     <p id="netHint" class="hint muted" role="status"></p>
     <div id="netList" class="list"></div>
-    <div id="onlineActions" class="tools hidden">
-      <button id="netMore" class="pill hidden" type="button">Cargar más canciones</button>
-      <button class="text-btn" data-go="settings">Configurar servidores</button>
-    </div>
   </section>
 
   <section id="settings" class="hidden" aria-label="Ajustes">
     <div class="section-heading"><div><h2>A tu gusto</h2><p>Los pequeños detalles de tu experiencia.</p></div></div>
-    <div class="settings-panel"><h3>Reproducción</h3>
-    <div id="onlineOpts" class="tools">
-      <label for="onlineQuality">Calidad de audio en línea</label>
-      <select id="onlineQuality" aria-describedby="onlineQualityHint">
-        <option value="96">Ahorro de datos · 96 kbps</option>
-        <option value="160">Equilibrada · 160 kbps</option>
-        <option value="320">Alta · 320 kbps</option>
-      </select>
-      <p id="onlineQualityHint" class="muted small">Se elige el formato de audio compatible más cercano, según disponibilidad.</p>
-      <button id="clearOnlineHistory" class="pill hidden" type="button">Borrar búsquedas recientes</button>
-    </div>
-    </div>
-    <div class="settings-panel"><h3>Servidores de música</h3>
-      <p class="muted small">Piped e Invidious son experimentales. La búsqueda puede funcionar aunque el audio esté bloqueado. Puedes usar una instancia propia compatible.</p>
-      <form id="serverForm" class="server-form">
-        <label for="pipedServer">API de Piped (opcional)</label><input id="pipedServer" type="url" placeholder="https://mi-servidor-piped.com" autocomplete="off">
-        <label for="invidiousServer">Servidor Invidious (opcional)</label><input id="invidiousServer" type="url" placeholder="https://mi-servidor-invidious.com" autocomplete="off">
-        <p class="muted small">Deja ambos vacíos para usar las instancias públicas incluidas. La reproducción con el iPhone bloqueado depende del navegador y requiere prueba en el dispositivo.</p>
-        <button class="pill" type="submit">Guardar servidores</button>
-        <p id="serverStatus" class="muted small" role="status"></p>
-      </form>
-    </div>
+    <div class="settings-panel"><h3>Búsquedas recientes</h3><p class="muted small">Las búsquedas de Archivo y Radio se guardan en este dispositivo.</p><button id="clearSearchHistory" class="pill hidden" type="button">Borrar búsquedas recientes</button></div>
     <div class="settings-panel"><h3>Tu música y tus herramientas</h3><div class="settings-links">
       <button data-import><svg class="ui-icon"><use href="#i-plus"/></svg><span><b>Agregar canciones</b><small>Archivos del teléfono o del computador</small></span></button>
       <button data-source="radio"><svg class="ui-icon"><use href="#i-radio"/></svg><span><b>Radio por país</b><small>Encuentra emisoras en vivo</small></span></button>
@@ -177,7 +140,6 @@
     <div class="p-text">
       <h2 id="pTitle"></h2>
       <p id="pArtist" class="muted"></p>
-      <a id="pLink" class="store-link hidden" target="_blank" rel="noopener">Escuchar completa en Apple Music ↗</a>
     </div>
     <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Posición">
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
@@ -195,7 +157,6 @@
   </section>
 
   <audio id="audio" preload="auto" playsinline></audio>
-  <script src="sources.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
