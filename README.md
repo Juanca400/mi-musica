@@ -31,7 +31,14 @@ Si está sincronizada, la línea actual se resalta y al tocar una línea la canc
 En las canciones de la biblioteca la letra se guarda para verla sin internet.
 
 ## Buscar en internet (pestaña 🌐 Internet)
+- **JioSaavn** (fuente inicial): busca canciones y artistas, reproduce el audio disponible y carga más resultados. Incluye un enlace al servicio original. Requiere conexión; el catálogo y la reproducción pueden variar según la región.
 - **Completas**: canciones completas que los artistas suben a Audius (sin clave). Suenan con la pantalla bloqueada; ⬇ aparece cuando el artista permite descargarla.
 - **Catálogo**: catálogo de iTunes, fragmentos de 30 segundos (no se pueden guardar).
 - **Archivo**: álbumes completos con licencia libre de Internet Archive; con ⬇ se guardan en la biblioteca.
 - **Radio**: emisoras en vivo (Radio Browser). Se puede filtrar por país (o "Todos los países"); sin buscar, muestra las más escuchadas del país elegido. La app recuerda el último país.
+
+## Integración JioSaavn
+
+La app consulta `https://saavn.sumit.co/api`, un servicio de terceros **no oficial**, con CORS para funcionar en GitHub Pages sin servidor. No requiere ni solicita credenciales de JioSaavn. La búsqueda usa `/search/songs` con paginación; los enlaces de audio antiguos se actualizan mediante `/songs/{id}` antes de reproducir.
+
+No se garantiza acceso a todo el catálogo, reproducción continua en segundo plano en todos los dispositivos, ni disponibilidad permanente de esta API. Si falla, se muestra un error y se puede abrir JioSaavn. Las canciones de esta fuente no se descargan a la biblioteca. La reproducción está sujeta a la disponibilidad y condiciones del proveedor.

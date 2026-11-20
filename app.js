@@ -299,13 +299,18 @@ function sortSongs() {
 /* ================= Internet ================= */
 const REGION = (() => { const r = (navigator.language || '').split('-')[1]; return r && /^[a-z]{2}$/i.test(r) ? r.toUpperCase() : 'US'; })();
 const HINTS = {
+  saavn: 'Busca canciones o artistas de JioSaavn. La reproducción depende de su disponibilidad en el servicio y en tu región. Requiere internet.',
   audius: 'Canciones completas que los artistas suben a Audius. Suenan con la pantalla bloqueada. ⬇ aparece si el artista permite descargarla.',
   itunes: 'Busca cualquier canción del catálogo de iTunes. Se escuchan fragmentos de 30 segundos.',
   free: 'Álbumes completos con licencia libre (Internet Archive). Toca ⬇ para guardarlas y oírlas sin internet.',
   radio: 'Emisoras en vivo de todo el mundo. Busca por nombre o género: salsa, vallenato, rock, noticias…',
 };
-const PLACEHOLDERS = { audius: 'Buscar canción, artista o género', itunes: 'Buscar canción o artista', free: 'Buscar género, artista o álbum', radio: 'Buscar emisora o género' };
-let netSrc = 'audius';
+const PLACEHOLDERS = { saavn: 'Buscar en JioSaavn: canción o artista', audius: 'Buscar canción, artista o género', itunes: 'Buscar canción o artista', free: 'Buscar género, artista o álbum', radio: 'Buscar emisora o género' };
+let netSrc = 'saavn';
+let saavnPage = 0;
+let saavnTotal = 0;
+let saavnQuery = '';
+let netBusy = false;
 let netItems = [];
 let netStatus = '';
 let netAlbum = null;      // álbum abierto de Internet Archive
@@ -323,6 +328,51 @@ async function getJSON(url, ms = 15000) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return await r.json();
   } finally { clearTimeout(tm); }
+}
+
+// Servicio de terceros: no es una API oficial ni garantiza todo el catálogo.
+const SAAVN = 'https://saavn.sumit.co/api';
+const SAAVN_LIMIT = 50;
+function saavnURL(value) {
+  try { const u = new URL(value); return u.protocol === 'https:' ? u.href : ''; }
+  catch { return ''; }
+}
+function saavnText(value) {
+  const el = document.createElement('textarea');
+  el.innerHTML = String(value || '').replace(/</g, '&lt;');
+  return el.value;
+}
+function saavnSong(t) {
+  const best = list => (Array.isArray(list) ? list : [])
+    .filter(x => saavnURL(x.url))
+    .sort((a, b) => (parseInt(b.quality, 10) || 0) - (parseInt(a.quality, 10) || 0))[0]?.url || '';
+  return {
+    kind: 'saavn', id: 'js:' + t.id, saavnId: t.id,
+    title: saavnText(t.name),
+    artist: (t.artists?.primary || []).map(a => saavnText(a.name)).join(', '),
+    dur: Number(t.duration) || 0,
+    thumb: best(t.image), coverUrl: best(t.image),
+    src: best(t.downloadUrl), link: saavnURL(t.url),
+    resolvedAt: Date.now(), canSave: false,
+  };
+}
+async function searchSaavn(q, page = 1) {
+  if (!q) return { items: [], total: 0 };
+  const j = await getJSON(`${SAAVN}/search/songs?query=${encodeURIComponent(q)}&page=${page}&limit=${SAAVN_LIMIT}`);
+  if (!j.success || !Array.isArray(j.data?.results)) throw new Error('JioSaavn no disponible');
+  return {
+    items: j.data.results.filter(t => t.id).map(saavnSong),
+    total: Number(j.data.total) || 0,
+  };
+}
+async function saavnStream(t) {
+  if (t.src && Date.now() - t.resolvedAt < 10 * 60 * 1000) return t.src;
+  const j = await getJSON(`${SAAVN}/songs/${encodeURIComponent(t.saavnId)}`);
+  if (!j.success || !j.data?.[0]) throw new Error('Canción no disponible');
+  const fresh = saavnSong(j.data[0]);
+  if (!fresh.src) throw new Error('Audio no disponible');
+  t.src = fresh.src; t.resolvedAt = fresh.resolvedAt;
+  return t.src;
 }
 
 async function searchItunes(q) {
@@ -411,6 +461,7 @@ async function openAlbum(al) {
 
 function closeAlbum() {
   ++netToken;
+  netBusy = false;
   netAlbum = null;
   netItems = netPrev ? netPrev.items : [];
   netStatus = '';
@@ -498,26 +549,44 @@ async function searchRadio(q) {
     }));
 }
 
-async function netSearch(q) {
+async function netSearch(q, append = false) {
   const token = ++netToken;
+  const source = netSrc;
+  const page = append ? saavnPage + 1 : 1;
+  netBusy = true;
   netAlbum = null; netPrev = null;
-  netItems = []; netStatus = 'Buscando…';
+  if (!append) netItems = [];
+  netStatus = q || source !== 'saavn' ? 'Buscando…' : '';
+  if (source === 'saavn' && !append) { saavnPage = 0; saavnTotal = 0; saavnQuery = q; }
   renderNet();
   try {
-    const fn = { audius: searchAudius, itunes: searchItunes, free: searchFree, radio: searchRadio }[netSrc];
-    const items = await fn(q);
+    const fn = { saavn: searchSaavn, audius: searchAudius, itunes: searchItunes, free: searchFree, radio: searchRadio }[source];
+    const result = await fn(q, page);
     if (token !== netToken) return;
-    netItems = items;
-    netStatus = items.length ? ''
-      : netSrc === 'radio' && radioCountry ? `No hay emisoras disponibles${q ? ' con esa búsqueda' : ''} en ${countryName(radioCountry)}. Prueba con otro país o con "Todos los países".`
+    const items = source === 'saavn' ? result.items : result;
+    if (source === 'saavn') {
+      saavnPage = page;
+      saavnTotal = items.length ? result.total : 0;
+    }
+    const seen = new Set(append ? netItems.map(t => t.id) : []);
+    netItems = append ? netItems.concat(items.filter(t => !seen.has(t.id) && seen.add(t.id))) : items;
+    netStatus = netItems.length || source === 'saavn' && !q ? ''
+      : source === 'radio' && radioCountry ? `No hay emisoras disponibles${q ? ' con esa búsqueda' : ''} en ${countryName(radioCountry)}. Prueba con otro país o con "Todos los países".`
       : 'Sin resultados. Prueba con otras palabras.';
   } catch (e) {
     if (token !== netToken) return;
-    netStatus = navigator.onLine === false ? 'Sin conexión a internet.' : 'No se pudo buscar. Intenta de nuevo.';
+    netStatus = navigator.onLine === false ? 'Sin conexión a internet.'
+      : source === 'saavn' ? 'JioSaavn no está disponible ahora. Intenta de nuevo o usa Abrir JioSaavn.'
+      : 'No se pudo buscar. Intenta de nuevo.';
   }
-  netCache[netSrc] = { items: netItems, status: netStatus, q };
+  netBusy = false;
+  netCache[source] = { items: netItems, status: netStatus, q };
   renderNet();
 }
+
+$('netMore').addEventListener('click', () => {
+  if (netSrc === 'saavn' && !netBusy) netSearch(saavnQuery, true);
+});
 
 function openNet() {
   $('netQ').placeholder = PLACEHOLDERS[netSrc];
@@ -532,6 +601,7 @@ document.querySelectorAll('.sources button').forEach(b => b.addEventListener('cl
   netCache[netSrc] = { items: netAlbum && netPrev ? netPrev.items : netItems, status: netAlbum ? '' : netStatus, q: $('netQ').value };
   netSrc = b.dataset.src;
   ++netToken;
+  netBusy = false;
   netAlbum = null; netPrev = null;
   document.querySelectorAll('.sources button').forEach(x => x.classList.toggle('on', x === b));
   const c = netCache[netSrc];
@@ -554,6 +624,10 @@ const isSaved = t => songs.some(s => s.source === t.id);
 
 function renderNet() {
   if (tab !== 'net') return;
+  $('saavnActions').classList.toggle('hidden', netSrc !== 'saavn');
+  $('netMore').classList.toggle('hidden', netSrc !== 'saavn' || saavnPage * SAAVN_LIMIT >= saavnTotal);
+  $('netMore').disabled = netBusy;
+  $('saavnLink').href = saavnQuery ? 'https://www.jiosaavn.com/search/' + encodeURIComponent(saavnQuery) : 'https://www.jiosaavn.com/';
   $('netHint').textContent = netStatus || (netAlbum ? '' : HINTS[netSrc]);
   let html = '';
   if (netAlbum) {
@@ -570,6 +644,9 @@ function renderNet() {
         : isSaved(t) ? `<span class="icon-btn fav-on" aria-label="Guardada">${ICON.check}</span>`
         : `<button class="icon-btn" data-act="save" aria-label="Guardar">${ICON.download}</button>`;
     }
+    else if (t.kind === 'saavn') actions = t.link
+      ? `<a class="tag" href="${esc(t.link)}" target="_blank" rel="noopener noreferrer" aria-label="Abrir ${esc(t.title)} en JioSaavn">JIOSAAVN</a>`
+      : '<span class="tag">JIOSAAVN</span>';
     else if (t.kind === 'preview') actions = '<span class="tag">30 s</span>';
     else if (t.kind === 'radio') actions = '<span class="tag live">EN VIVO</span>';
     return `<div class="row${playing ? ' playing' : ''}" data-i="${i}">
@@ -681,7 +758,13 @@ async function loadAndPlay(autoplay = true) {
     src = URL.createObjectURL(blob);
     store.set('last', t.id);
   } else {
-    src = t.src;
+    try { src = t.kind === 'saavn' ? await saavnStream(t) : t.src; }
+    catch {
+      if (token !== loadToken) return;
+      toast('Esta canción no está disponible. Puedes abrir JioSaavn.', 4000);
+      return;
+    }
+    if (token !== loadToken) return;
   }
   if (audioURL) { URL.revokeObjectURL(audioURL); audioURL = null; }
   if (src.startsWith('blob:')) audioURL = src;
@@ -700,7 +783,9 @@ async function loadAndPlay(autoplay = true) {
 
 audio.addEventListener('error', () => {
   if (!current || !audio.src || audio.src.startsWith('blob:') && !isLib(current)) return;
-  toast(current.kind === 'radio' ? 'Esta emisora no está disponible ahora' : 'No se pudo cargar el audio', 3000);
+  toast(current.kind === 'radio' ? 'Esta emisora no está disponible ahora'
+    : current.kind === 'saavn' ? 'Audio no disponible. Usa el enlace JIOSAAVN para abrir la canción.'
+    : 'No se pudo cargar el audio', 4000);
   updatePlayButtons();
 });
 
@@ -803,7 +888,7 @@ function updatePlayerUI() {
   $('miniArtist').textContent = sub;
   $('pTitle').textContent = t.title;
   $('pArtist').textContent = sub;
-  $('pLabel').textContent = { preview: 'Vista previa · 30 s', free: 'Canción completa', radio: 'Radio en vivo' }[t.kind] || 'Reproduciendo';
+  $('pLabel').textContent = { preview: 'Vista previa · 30 s', free: 'Canción completa', radio: 'Radio en vivo', saavn: 'JioSaavn' }[t.kind] || 'Reproduciendo';
   setCover($('miniCover'), t);
   setCover($('pCover'), t);
   $('pFav').classList.toggle('hidden', !isLib(t));
@@ -815,7 +900,8 @@ function updatePlayerUI() {
     $('pSave').classList.toggle('fav-on', isSaved(t));
     $('pSave').classList.toggle('spin', saving.has(t.id));
   }
-  $('pLink').classList.toggle('hidden', !(t.kind === 'preview' && t.link));
+  $('pLink').classList.toggle('hidden', !((t.kind === 'preview' || t.kind === 'saavn') && t.link));
+  $('pLink').textContent = t.kind === 'saavn' ? 'Abrir canción en JioSaavn' : 'Escuchar completa en Apple Music ↗';
   if (t.link) $('pLink').href = t.link;
   updateSeekState();
   applyLyricsView();
