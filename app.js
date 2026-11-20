@@ -332,6 +332,51 @@ async function getJSON(url, ms = 15000) {
 
 // Servicio de terceros: no es una API oficial ni garantiza todo el catálogo.
 const SAAVN = 'https://saavn.sumit.co/api';
+const SAAVN_SERVERS = [SAAVN, 'https://melotune.harshbits.com/api'];
+const SAAVN_QUALITIES = ['96kbps', '160kbps', '320kbps'];
+let saavnQuality = store.get('saavnQuality', '320kbps');
+if (!SAAVN_QUALITIES.includes(saavnQuality)) saavnQuality = '320kbps';
+const savedSaavnHistory = store.get('saavnHistory', []);
+let saavnHistory = Array.isArray(savedSaavnHistory)
+  ? savedSaavnHistory.filter(q => typeof q === 'string' && q.trim()).slice(0, 8) : [];
+
+// Endpoints compatibles con Melotune; su búsqueda pagina desde cero.
+async function saavnRequest(path, valid) {
+  for (const server of SAAVN_SERVERS) {
+    try {
+      const url = new URL(server + path);
+      if (server === SAAVN_SERVERS[1] && url.pathname === '/api/search/songs') {
+        url.searchParams.set('page', Math.max(0, Number(url.searchParams.get('page')) - 1));
+      }
+      const j = await getJSON(url.href, 8000);
+      if (j.success && valid(j.data)) return j;
+    } catch {}
+  }
+  throw new Error('JioSaavn no disponible');
+}
+function saavnAudio(list) {
+  const urls = (Array.isArray(list) ? list : []).filter(x => saavnURL(x.url));
+  return urls.find(x => x.quality === saavnQuality)?.url
+    || urls.sort((a, b) => (parseInt(b.quality, 10) || 0) - (parseInt(a.quality, 10) || 0))[0]?.url || '';
+}
+function renderSaavnHistory() {
+  $('saavnHistory').replaceChildren(...saavnHistory.map(q => {
+    const option = document.createElement('option');
+    option.value = q;
+    return option;
+  }));
+  $('clearSaavnHistory').classList.toggle('hidden', !saavnHistory.length);
+}
+$('saavnQuality').value = saavnQuality;
+$('saavnQuality').addEventListener('change', e => {
+  if (!SAAVN_QUALITIES.includes(e.target.value)) return;
+  saavnQuality = e.target.value;
+  store.set('saavnQuality', saavnQuality);
+});
+$('clearSaavnHistory').addEventListener('click', () => {
+  saavnHistory = []; store.set('saavnHistory', saavnHistory); renderSaavnHistory();
+});
+renderSaavnHistory();
 const SAAVN_LIMIT = 50;
 function saavnURL(value) {
   try { const u = new URL(value); return u.protocol === 'https:' ? u.href : ''; }
@@ -352,26 +397,25 @@ function saavnSong(t) {
     artist: (t.artists?.primary || []).map(a => saavnText(a.name)).join(', '),
     dur: Number(t.duration) || 0,
     thumb: best(t.image), coverUrl: best(t.image),
-    src: best(t.downloadUrl), link: saavnURL(t.url),
+    streams: t.downloadUrl, src: saavnAudio(t.downloadUrl), link: saavnURL(t.url),
     resolvedAt: Date.now(), canSave: false,
   };
 }
 async function searchSaavn(q, page = 1) {
   if (!q) return { items: [], total: 0 };
-  const j = await getJSON(`${SAAVN}/search/songs?query=${encodeURIComponent(q)}&page=${page}&limit=${SAAVN_LIMIT}`);
-  if (!j.success || !Array.isArray(j.data?.results)) throw new Error('JioSaavn no disponible');
+  const j = await saavnRequest(`/search/songs?query=${encodeURIComponent(q)}&page=${page}&limit=${SAAVN_LIMIT}`, data => Array.isArray(data?.results));
   return {
     items: j.data.results.filter(t => t.id).map(saavnSong),
     total: Number(j.data.total) || 0,
   };
 }
 async function saavnStream(t) {
-  if (t.src && Date.now() - t.resolvedAt < 10 * 60 * 1000) return t.src;
-  const j = await getJSON(`${SAAVN}/songs/${encodeURIComponent(t.saavnId)}`);
-  if (!j.success || !j.data?.[0]) throw new Error('Canción no disponible');
+  const cached = saavnAudio(t.streams);
+  if (cached && Date.now() - t.resolvedAt < 10 * 60 * 1000) { t.src = cached; return cached; }
+  const j = await saavnRequest(`/songs/${encodeURIComponent(t.saavnId)}`, data => Array.isArray(data) && !!data[0]?.id);
   const fresh = saavnSong(j.data[0]);
   if (!fresh.src) throw new Error('Audio no disponible');
-  t.src = fresh.src; t.resolvedAt = fresh.resolvedAt;
+  t.streams = fresh.streams; t.src = fresh.src; t.resolvedAt = fresh.resolvedAt;
   return t.src;
 }
 
@@ -590,6 +634,8 @@ $('netMore').addEventListener('click', () => {
 
 function openNet() {
   $('netQ').placeholder = PLACEHOLDERS[netSrc];
+  $('netQ').setAttribute('list', netSrc === 'saavn' ? 'saavnHistory' : '');
+  $('saavnOpts').classList.toggle('hidden', netSrc !== 'saavn');
   $('radioOpts').classList.toggle('hidden', netSrc !== 'radio');
   if (netSrc === 'radio') loadCountries();
   if (!netLoaded[netSrc] && netSrc !== 'itunes') { netLoaded[netSrc] = true; netSearch(''); }
@@ -616,6 +662,11 @@ $('netForm').addEventListener('submit', e => {
   const q = $('netQ').value.trim();
   $('netQ').blur();
   if (!q && netSrc === 'itunes') return;
+  if (netSrc === 'saavn' && q) {
+    saavnHistory = [q, ...saavnHistory.filter(x => x.toLocaleLowerCase() !== q.toLocaleLowerCase())].slice(0, 8);
+    store.set('saavnHistory', saavnHistory);
+    renderSaavnHistory();
+  }
   netLoaded[netSrc] = true;
   netSearch(q);
 });

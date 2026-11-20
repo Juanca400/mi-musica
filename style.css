@@ -41,7 +41,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   background: var(--bg2); color: var(--fg); font-size: 16px; outline: none;
 }
 #radioOpts { padding-top: 0; }
-#country {
+#country, #saavnQuality {
   width: 100%; padding: 10px 36px 10px 14px; border-radius: 12px; border: 0;
   background: var(--bg2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%239a9aa8'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 10px center / 22px;
   color: var(--fg); font-size: 16px; outline: none;
@@ -178,3 +178,6 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 #saavnActions { flex-wrap: wrap; align-items: center; gap: 12px; }
 #netMore:disabled { opacity: .5; }
+
+#saavnOpts label { display: block; margin: 4px 0 6px; }
+#saavnQualityHint { margin: 6px 0 8px; }

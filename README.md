@@ -42,3 +42,15 @@ En las canciones de la biblioteca la letra se guarda para verla sin internet.
 La app consulta `https://saavn.sumit.co/api`, un servicio de terceros **no oficial**, con CORS para funcionar en GitHub Pages sin servidor. No requiere ni solicita credenciales de JioSaavn. La búsqueda usa `/search/songs` con paginación; los enlaces de audio antiguos se actualizan mediante `/songs/{id}` antes de reproducir.
 
 No se garantiza acceso a todo el catálogo, reproducción continua en segundo plano en todos los dispositivos, ni disponibilidad permanente de esta API. Si falla, se muestra un error y se puede abrir JioSaavn. Las canciones de esta fuente no se descargan a la biblioteca. La reproducción está sujeta a la disponibilidad y condiciones del proveedor.
+
+## Mejoras adaptadas de Melotune iOS
+
+- **Calidad de JioSaavn**: 96, 160 o 320 kbps. Se guarda en este navegador y se aplica al iniciar una canción; si esa calidad falta, se usa la mejor disponible. Cambiarla no interrumpe la canción actual.
+- **Búsquedas recientes**: el campo de JioSaavn ofrece las últimas ocho búsquedas como sugerencias. Se guardan localmente y se pueden borrar con el botón correspondiente.
+- **Servidor alternativo**: si `saavn.sumit.co` falla, la app intenta `https://melotune.harshbits.com/api`, usado por Melotune. La paginación se adapta a cada servidor (el de Melotune comienza en cero). Ambos son servicios de terceros; no garantizan otro catálogo ni acceso a canciones restringidas. Una consulta puede tardar hasta unos 16 segundos antes de fallar.
+
+Referencia y licencia: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). La interfaz y las funciones nativas de iOS de Melotune requieren una app Swift/Xcode y no se incorporan a esta web.
+
+## Verificación de la integración
+
+Con Node.js: `node --test tests/saavn.test.cjs`. Comprueba la selección y persistencia de calidad, renovación de audio, conmutación de servidores y borrado del historial.

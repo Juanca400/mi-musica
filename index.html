@@ -52,8 +52,19 @@
       <button data-src="radio">Radio</button>
     </div>
     <form id="netForm" class="tools" autocomplete="off">
-      <input id="netQ" type="search" enterkeyhint="search" placeholder="Buscar canción o artista">
+      <input id="netQ" type="search" list="saavnHistory" enterkeyhint="search" placeholder="Buscar canción o artista">
     </form>
+    <datalist id="saavnHistory"></datalist>
+    <div id="saavnOpts" class="tools hidden">
+      <label for="saavnQuality">Calidad de JioSaavn</label>
+      <select id="saavnQuality" aria-describedby="saavnQualityHint">
+        <option value="96kbps">Ahorro de datos · 96 kbps</option>
+        <option value="160kbps">Equilibrada · 160 kbps</option>
+        <option value="320kbps">Alta · 320 kbps</option>
+      </select>
+      <p id="saavnQualityHint" class="muted small">Se aplica al iniciar una canción, según disponibilidad.</p>
+      <button id="clearSaavnHistory" class="pill hidden" type="button">Borrar búsquedas recientes</button>
+    </div>
     <div id="radioOpts" class="tools hidden">
       <select id="country" aria-label="País"></select>
     </div>
