@@ -1,6 +1,6 @@
 // Guarda la app en el teléfono para que abra sin internet.
 // Con internet siempre carga la versión más nueva; sin internet usa la guardada.
-const CACHE = 'mi-musica-v8';
+const CACHE = 'mi-musica-v9';
 const ASSETS = [
   './',
   './index.html',

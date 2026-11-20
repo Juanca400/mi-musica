@@ -98,7 +98,27 @@
     }
     return { search, resolve };
   }
-  const api = { DEFAULTS, https, baseURL, videoID, mapTrack, pickAudio, createClient };
+  async function playWithFallback({ track, quality, resolve, start, isCurrent = () => true }) {
+    const excluded = [];
+    // Una URL entregada por la API todavía puede devolver 403 al reproductor.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (!isCurrent()) return null;
+      const stream = await resolve(track, quality, excluded);
+      if (!isCurrent()) return null;
+      if (excluded.includes(stream.endpoint)) break;
+      excluded.push(stream.endpoint);
+      try {
+        await start(stream.url);
+        return isCurrent() ? stream : null;
+      } catch (err) {
+        if (!isCurrent() || err.name === 'AbortError') return null;
+        // El permiso del navegador requiere otro gesto, no otro servidor.
+        if (err.name === 'NotAllowedError') throw err;
+      }
+    }
+    throw new Error('Los servidores rechazaron el audio de esta canción.');
+  }
+  const api = { DEFAULTS, https, baseURL, videoID, mapTrack, pickAudio, createClient, playWithFallback };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.MusicSources = api;
 })(globalThis);

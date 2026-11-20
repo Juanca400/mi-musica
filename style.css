@@ -243,3 +243,8 @@ body.player-open { overflow: hidden; }
 .server-form label { display: block; font-size: 14px; color: var(--muted); margin: 16px 0 8px; }
 .server-form input { width: 100%; color: var(--fg); background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; font-size: 16px; }
 #serverStatus { margin-top: 14px; }
+
+.playback-notice { margin: 0 0 24px; padding: 20px; border-radius: 20px; border: 1px solid #e8bc6150; background: #332b17; }
+.playback-notice p { margin: 0 0 14px; font-size: 15px; color: #f0ddb7; }
+.playback-notice > div { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.playback-notice .store-link { margin: 0; }

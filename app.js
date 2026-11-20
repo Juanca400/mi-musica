@@ -429,11 +429,6 @@ $('serverForm').addEventListener('submit', e => {
     $('serverStatus').textContent = 'Servidores guardados. Vuelve a Buscar para probarlos.';
   } catch (err) { $('serverStatus').textContent = err.message; }
 });
-async function onlineStream(t, excluded = []) {
-  const stream = await onlineClient.resolve(t, onlineQuality, excluded);
-  t.streamEndpoint = stream.endpoint; t.src = stream.url;
-  return stream.url;
-}
 
 async function searchItunes(q) {
   const j = await getJSON(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=50&country=${REGION}`);
@@ -787,10 +782,78 @@ function unlockAudio() {
 }
 
 let loadToken = 0;
+let onlinePhase = 'idle';
+let onlineStartController = null;
+function setOnlineNotice(message = '') {
+  $('playbackNotice').classList.toggle('hidden', !message);
+  $('playbackMessage').textContent = message;
+  $('playbackOriginal').href = current?.kind === 'online' ? current.link : 'https://www.youtube.com/';
+}
+function startOnlineAudio(url, autoplay, signal) {
+  return new Promise((resolve, reject) => {
+    let timer;
+    const finish = err => {
+      clearTimeout(timer);
+      audio.removeEventListener('error', failed);
+      audio.removeEventListener('loadedmetadata', loaded);
+      signal.removeEventListener('abort', cancelled);
+      if (err) reject(err); else resolve();
+    };
+    const failed = () => finish(new Error('El servidor rechazó el audio.'));
+    const loaded = () => { if (!autoplay) finish(); };
+    const cancelled = () => finish(new DOMException('Carga cancelada', 'AbortError'));
+    if (signal.aborted) { cancelled(); return; }
+    audio.addEventListener('error', failed);
+    audio.addEventListener('loadedmetadata', loaded);
+    signal.addEventListener('abort', cancelled, { once: true });
+    timer = setTimeout(() => finish(new Error('El audio no respondió a tiempo.')), 12000);
+    audio.src = url;
+    audio.load();
+    if (autoplay) audio.play().then(() => finish(), err => finish(err));
+  });
+}
+async function loadOnline(t, token, autoplay) {
+  const controller = new AbortController();
+  onlineStartController = controller;
+  const isCurrent = () => token === loadToken && !controller.signal.aborted;
+  onlinePhase = 'loading'; current = t;
+  audio.pause(); audio.removeAttribute('src'); audio.load();
+  if (audioURL) { URL.revokeObjectURL(audioURL); audioURL = null; }
+  setOnlineNotice(); updatePlayerUI(); render(); renderNet(); updateMediaSession();
+  toast('Comprobando audio en los servidores…', 0);
+  try {
+    const stream = await MusicSources.playWithFallback({
+      track: t, quality: onlineQuality, isCurrent,
+      resolve: (track, quality, excluded) => onlineClient.resolve(track, quality, excluded),
+      start: url => startOnlineAudio(url, autoplay, controller.signal),
+    });
+    if (!stream || !isCurrent()) return;
+    t.src = stream.url; t.streamEndpoint = stream.endpoint;
+    onlinePhase = 'ready';
+    $('toast').classList.add('hidden');
+    updatePlayerUI(); renderNet();
+  } catch (err) {
+    if (!isCurrent()) return;
+    $('toast').classList.add('hidden');
+    if (err.name === 'NotAllowedError') {
+      onlinePhase = 'ready';
+      toast('Toca ▶ para permitir la reproducción', 4000);
+    } else {
+      onlinePhase = 'failed';
+      audio.pause(); audio.removeAttribute('src'); audio.load();
+      setOnlineNotice('Las fuentes encontraron la canción, pero sus servidores rechazaron el audio. No está disponible para reproducir aquí ahora.');
+    }
+    updatePlayerUI(); renderNet();
+  }
+}
 async function loadAndPlay(autoplay = true) {
   const t = queue[qi];
   if (!t) return;
   const token = ++loadToken;
+  onlineStartController?.abort();
+  if (onlinePhase === 'loading') $('toast').classList.add('hidden');
+  onlinePhase = 'idle'; setOnlineNotice();
+  if (t.kind === 'online') { await loadOnline(t, token, autoplay); return; }
   let src;
   if (isLib(t)) {
     const blob = await dbGetFile(t.id);
@@ -798,25 +861,10 @@ async function loadAndPlay(autoplay = true) {
     if (!blob) { toast('No se encontró el archivo de esta canción'); return; }
     src = URL.createObjectURL(blob);
     store.set('last', t.id);
-  } else {
-    if (t.kind === 'online') {
-      audio.pause(); audio.removeAttribute('src'); audio.load(); current = t;
-      updatePlayerUI(); renderNet();
-      toast('Preparando audio…', 0);
-    }
-    try { src = t.kind === 'online' ? await onlineStream(t) : t.src; }
-    catch {
-      if (token !== loadToken) return;
-      toast('Estos servidores no ofrecen audio disponible ahora. Prueba otra fuente o revisa Ajustes.', 5000);
-      return;
-    }
-    if (token !== loadToken) return;
-  }
+  } else src = t.src;
   if (audioURL) { URL.revokeObjectURL(audioURL); audioURL = null; }
   if (src.startsWith('blob:')) audioURL = src;
-  current = t;
-  if (t.kind === 'online') $('toast').classList.add('hidden');
-  audio.src = src;
+  current = t; audio.src = src;
   updatePlayerUI(); render(); renderNet(); updateMediaSession();
   if (autoplay) {
     try { await audio.play(); }
@@ -829,18 +877,33 @@ async function loadAndPlay(autoplay = true) {
 }
 
 audio.addEventListener('error', () => {
-  if (!current || !audio.src || audio.src.startsWith('blob:') && !isLib(current)) return;
-  toast(current.kind === 'radio' ? 'Esta emisora no está disponible ahora'
-    : current.kind === 'online' ? 'El servidor rechazó el audio. Prueba otra fuente o configura otra instancia en Ajustes.'
-    : 'No se pudo cargar el audio', 4000);
+  if (!current || !audio.getAttribute('src') || audio.src.startsWith('blob:') && !isLib(current)) return;
+  if (current.kind === 'online') {
+    if (onlinePhase === 'loading') return; // La carga actual intentará otra fuente.
+    onlinePhase = 'failed';
+    setOnlineNotice('El servidor interrumpió o rechazó el audio. Puedes reintentar; si vuelve a fallar, la canción no está disponible aquí.');
+    updatePlayerUI(); return;
+  }
+  toast(current.kind === 'radio' ? 'Esta emisora no está disponible ahora' : 'No se pudo cargar el audio', 4000);
   updatePlayButtons();
 });
 
 function togglePlay() {
   if (!current) return;
+  if (current.kind === 'online' && onlinePhase === 'loading') return;
   unlockAudio();
-  if (audio.paused) audio.play().catch(() => {}); else audio.pause();
+  if (current.kind === 'online' && (onlinePhase === 'failed' || !audio.getAttribute('src'))) { loadAndPlay(); return; }
+  if (audio.paused) audio.play().catch(err => {
+    if (current?.kind === 'online' && err.name !== 'AbortError') {
+      onlinePhase = 'failed';
+      setOnlineNotice(err.name === 'NotAllowedError' ? 'El navegador necesita permiso para reproducir. Toca Reintentar audio.' : 'El servidor rechazó el audio. Puedes reintentar o abrir la fuente original.');
+      updatePlayerUI();
+    }
+  }); else audio.pause();
 }
+$('retryOnline').addEventListener('click', () => {
+  if (current?.kind === 'online' && onlinePhase !== 'loading') { unlockAudio(); loadAndPlay(); }
+});
 
 function pickNext() {
   if (!queue.length) return -1;
@@ -935,7 +998,9 @@ function updatePlayerUI() {
   $('miniArtist').textContent = sub;
   $('pTitle').textContent = t.title;
   $('pArtist').textContent = sub;
-  $('pLabel').textContent = { preview: 'Vista previa · 30 s', free: 'Canción completa', radio: 'Radio en vivo', online: 'Solo audio · ' + (t.provider === 'piped' ? 'Piped' : 'Invidious') }[t.kind] || 'Reproduciendo';
+  $('pLabel').textContent = t.kind === 'online' && onlinePhase === 'loading' ? 'Comprobando audio…'
+    : t.kind === 'online' && onlinePhase === 'failed' ? 'Audio no disponible'
+    : { preview: 'Vista previa · 30 s', free: 'Canción completa', radio: 'Radio en vivo', online: 'Solo audio · ' + (t.provider === 'piped' ? 'Piped' : 'Invidious') }[t.kind] || 'Reproduciendo';
   setCover($('miniCover'), t);
   setCover($('pCover'), t);
   $('pFav').classList.toggle('hidden', !isLib(t));

@@ -49,7 +49,7 @@ Instancias públicas predeterminadas:
 - Invidious: `https://yt.chocolatemoo53.com`
 - Piped: `https://pipedapi.ducks.party` y `https://api.piped.private.coffee`
 
-Si un servidor no entrega formatos de audio, se prueban las otras instancias incluidas, hasta tres solicitudes de siete segundos. Los enlaces de audio pueden ser rechazados posteriormente por el servidor de medios; ese rechazo se informa al usuario. No se implementa evasión de CAPTCHA, inicio de sesión, acceso restringido ni controles de protección.
+Si un servidor no entrega formatos de audio, se prueban las otras instancias incluidas, hasta tres solicitudes de siete segundos. Si un enlace de audio es rechazado al comenzar la reproducción, el reproductor intenta otra instancia, con un máximo de tres enlaces y doce segundos para iniciar cada uno. Los permisos de reproducción del navegador no disparan cambios de servidor. Al agotar los intentos se muestra un aviso persistente, se libera el audio fallido y se permite reintentar desde el aviso o el mini reproductor. No se implementa evasión de CAPTCHA, inicio de sesión, acceso restringido ni controles de protección.
 
 ### Estado de la verificación real
 
@@ -80,3 +80,7 @@ La interfaz adapta la paleta esmeralda, superficies translúcidas, tarjetas y na
 `node --test tests/sources.test.cjs`
 
 Comprueban consultas y paginación de ambas APIs, fallos de instancia, elección de audio compatible, configuración HTTPS, exclusión de streams de video y actualización de servidor. Son pruebas con respuestas simuladas; no certifican la disponibilidad de las instancias públicas.
+
+### Diagnóstico de «Un Sueño»
+
+La canción de la captura se encontró en Invidious (`3aws_FqP8OE`). Al solicitar bytes del audio con redirecciones, el servidor respondió HTTP 403 y contenido HTML en lugar de audio. Piped devolvió `LOGIN_REQUIRED` para el mismo ID. La corrección del reproductor maneja esos rechazos e intenta la alternativa disponible; no elimina el bloqueo del proveedor.

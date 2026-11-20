@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {createClient, mapTrack, pickAudio, baseURL, videoID} = require('../sources.js');
+const {createClient, mapTrack, pickAudio, baseURL, videoID, playWithFallback} = require('../sources.js');
 const id='abcdefghijk';
 const pipedRow={type:'stream',url:'/watch?v='+id,title:'Title <safe>',uploaderName:'Artist',duration:210,thumbnail:'https://img.example/cover.jpg'};
 const invRow={type:'video',videoId:id,title:'Song',author:'Artist',lengthSeconds:210,videoThumbnails:[]};
@@ -61,4 +61,40 @@ test('all blocked audio resolvers fail explicitly, never substitute video or cla
 test('changing the configured instance does not reuse a queued track old server',async()=>{
  const calls=[];const api=createClient({endpoints:{invidious:'https://own.example'},request:async url=>{calls.push(url);return {adaptiveFormats:[{url:aac.url,type:aac.mimeType,bitrate:128000}]};}});
  await api.resolve(track,160);assert.ok(calls.every(url=>url.startsWith('https://own.example/')));
+});
+
+
+test('media rejection after successful resolution retries another endpoint', async () => {
+ const attempts=[];
+ const client=createClient({request:async url=>url.includes('/videos/')
+   ? {adaptiveFormats:[{url:'https://media.example/rejected',type:'audio/mp4',bitrate:128000}]}
+   : {audioStreams:[aac]}});
+ const result=await playWithFallback({track,quality:160,resolve:client.resolve,start:async url=>{
+   attempts.push(url);if(attempts.length===1)throw new Error('Media request returned HTTP 403');
+ }});
+ assert.equal(result.provider,'piped');assert.deepEqual(attempts,['https://media.example/rejected',aac.url]);
+});
+test('browser permission rejection stops retries and preserves permission error',async()=>{
+ let attempts=0;
+ await assert.rejects(playWithFallback({track,quality:160,
+   resolve:async()=>({endpoint:'https://instance.example',url:aac.url}),
+   start:async()=>{attempts++;const e=new Error('Gesture required');e.name='NotAllowedError';throw e;}
+ }),{name:'NotAllowedError'});
+ assert.equal(attempts,1);
+});
+test('switching tracks during failed playback cancels fallback instead of replacing new audio',async()=>{
+ let active=true,attempts=0;
+ const result=await playWithFallback({track,quality:160,isCurrent:()=>active,
+   resolve:async()=>({endpoint:'https://instance.example',url:aac.url}),
+   start:async()=>{attempts++;active=false;throw new Error('Old audio failed');}
+ });
+ assert.equal(result,null);assert.equal(attempts,1);
+});
+test('unplayable URLs from every endpoint fail after a bounded number of attempts',async()=>{
+ let count=0;
+ await assert.rejects(playWithFallback({track,quality:160,
+   resolve:async(t,q,excluded)=>({endpoint:'https://instance'+excluded.length+'.example',url:aac.url}),
+   start:async()=>{count++;throw new Error('Unsupported audio');}
+ }),/rechazaron el audio/);
+ assert.equal(count,3);
 });
