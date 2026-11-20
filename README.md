@@ -26,6 +26,7 @@ Dentro de esta carpeta: `python -m http.server 8765` y abre http://localhost:876
 Sube los archivos de nuevo. La próxima vez que abras la app con internet cargará la versión nueva.
 
 ## Buscar en internet (pestaña 🌐 Internet)
-- **Canciones**: catálogo de iTunes, fragmentos de 30 segundos (no se pueden guardar).
-- **Música libre**: canciones completas con licencia libre de Internet Archive; con ⬇ se guardan en la biblioteca.
+- **Completas**: canciones completas que los artistas suben a Audius (sin clave). Suenan con la pantalla bloqueada; ⬇ aparece cuando el artista permite descargarla.
+- **Catálogo**: catálogo de iTunes, fragmentos de 30 segundos (no se pueden guardar).
+- **Archivo**: álbumes completos con licencia libre de Internet Archive; con ⬇ se guardan en la biblioteca.
 - **Radio**: emisoras en vivo (Radio Browser). Sin buscar, muestra las más escuchadas de tu país.

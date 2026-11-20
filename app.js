@@ -299,12 +299,13 @@ function sortSongs() {
 /* ================= Internet ================= */
 const REGION = (() => { const r = (navigator.language || '').split('-')[1]; return r && /^[a-z]{2}$/i.test(r) ? r.toUpperCase() : 'US'; })();
 const HINTS = {
+  audius: 'Canciones completas que los artistas suben a Audius. Suenan con la pantalla bloqueada. ⬇ aparece si el artista permite descargarla.',
   itunes: 'Busca cualquier canción del catálogo de iTunes. Se escuchan fragmentos de 30 segundos.',
-  free: 'Canciones completas con licencia libre (Internet Archive). Toca ⬇ para guardarlas y oírlas sin internet.',
+  free: 'Álbumes completos con licencia libre (Internet Archive). Toca ⬇ para guardarlas y oírlas sin internet.',
   radio: 'Emisoras en vivo de todo el mundo. Busca por nombre o género: salsa, vallenato, rock, noticias…',
 };
-const PLACEHOLDERS = { itunes: 'Buscar canción o artista', free: 'Buscar género, artista o álbum', radio: 'Buscar emisora o género' };
-let netSrc = 'itunes';
+const PLACEHOLDERS = { audius: 'Buscar canción, artista o género', itunes: 'Buscar canción o artista', free: 'Buscar género, artista o álbum', radio: 'Buscar emisora o género' };
+let netSrc = 'audius';
 let netItems = [];
 let netStatus = '';
 let netAlbum = null;      // álbum abierto de Internet Archive
@@ -335,6 +336,26 @@ async function searchItunes(q) {
     coverUrl: (x.artworkUrl100 || '').replace('100x100', '600x600'),
     src: x.previewUrl,
     link: x.trackViewUrl,
+  }));
+}
+
+// Audius: plataforma donde los artistas suben sus canciones completas (API abierta, sin clave)
+const AUDIUS = 'https://api.audius.co/v1';
+const APP = 'app_name=mi-musica';
+async function searchAudius(q) {
+  const j = await getJSON(q
+    ? `${AUDIUS}/tracks/search?query=${encodeURIComponent(q)}&limit=50&${APP}`
+    : `${AUDIUS}/tracks/trending?limit=50&${APP}`);
+  return (j.data || []).filter(t => t.is_streamable !== false).map(t => ({
+    kind: 'free',
+    id: 'au:' + t.id,
+    title: t.title,
+    artist: (t.user && t.user.name) || '',
+    dur: t.duration,
+    thumb: t.artwork && (t.artwork['150x150'] || t.artwork['480x480']),
+    coverUrl: t.artwork && (t.artwork['480x480'] || t.artwork['1000x1000']),
+    src: `${AUDIUS}/tracks/${encodeURIComponent(t.id)}/stream?${APP}`,
+    canSave: !!t.is_downloadable,
   }));
 }
 
@@ -378,6 +399,7 @@ async function openAlbum(al) {
       thumb: al.thumb,
       coverUrl: albumCover,
       src: dl(f.name),
+      canSave: true,
     }));
     netStatus = netItems.length ? '' : 'Este álbum no tiene canciones en MP3.';
   } catch (e) {
@@ -442,7 +464,7 @@ async function netSearch(q) {
   netItems = []; netStatus = 'Buscando…';
   renderNet();
   try {
-    const fn = { itunes: searchItunes, free: searchFree, radio: searchRadio }[netSrc];
+    const fn = { audius: searchAudius, itunes: searchItunes, free: searchFree, radio: searchRadio }[netSrc];
     const items = await fn(q);
     if (token !== netToken) return;
     netItems = items;
@@ -499,7 +521,8 @@ function renderNet() {
     let actions = '';
     if (t.kind === 'album') actions = '<span class="chev">›</span>';
     else if (t.kind === 'free') {
-      actions = saving.has(t.id) ? `<span class="icon-btn dim spin">${ICON.download}</span>`
+      actions = !t.canSave ? '<span class="tag">COMPLETA</span>'
+        : saving.has(t.id) ? `<span class="icon-btn dim spin">${ICON.download}</span>`
         : isSaved(t) ? `<span class="icon-btn fav-on" aria-label="Guardada">${ICON.check}</span>`
         : `<button class="icon-btn" data-act="save" aria-label="Guardar">${ICON.download}</button>`;
     }
@@ -508,7 +531,7 @@ function renderNet() {
     return `<div class="row${playing ? ' playing' : ''}" data-i="${i}">
       <button class="row-main" data-act="${t.kind === 'album' ? 'open' : 'play'}">
         <span class="cover sm" data-c="${i}"></span>
-        <span class="row-text"><span class="t">${esc(t.title)}</span><span class="a">${esc(t.artist)}</span></span>
+        <span class="row-text"><span class="t">${esc(t.title)}</span><span class="a">${esc(t.artist)}${t.dur ? ' · ' + fmt(t.dur) : ''}</span></span>
       </button>${actions}</div>`;
   }).join('');
   const el = $('netList');
@@ -534,7 +557,7 @@ $('netList').addEventListener('click', e => {
 
 // Descarga una canción libre y la guarda en la biblioteca para oírla sin internet
 async function saveTrack(t) {
-  if (!t || t.kind !== 'free' || saving.has(t.id)) return;
+  if (!t || t.kind !== 'free' || !t.canSave || saving.has(t.id)) return;
   if (isSaved(t)) { toast('Ya está en tu biblioteca'); return; }
   saving.add(t.id); renderNet(); updatePlayerUI();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
@@ -735,13 +758,13 @@ function updatePlayerUI() {
   $('miniArtist').textContent = sub;
   $('pTitle').textContent = t.title;
   $('pArtist').textContent = sub;
-  $('pLabel').textContent = { preview: 'Vista previa · 30 s', free: 'Música libre', radio: 'Radio en vivo' }[t.kind] || 'Reproduciendo';
+  $('pLabel').textContent = { preview: 'Vista previa · 30 s', free: 'Canción completa', radio: 'Radio en vivo' }[t.kind] || 'Reproduciendo';
   setCover($('miniCover'), t);
   setCover($('pCover'), t);
   $('pFav').classList.toggle('hidden', !isLib(t));
   $('pFav').innerHTML = t.fav ? ICON.heart : ICON.heartO;
   $('pFav').classList.toggle('fav-on', !!t.fav);
-  $('pSave').classList.toggle('hidden', t.kind !== 'free');
+  $('pSave').classList.toggle('hidden', !(t.kind === 'free' && t.canSave));
   if (t.kind === 'free') {
     $('pSave').innerHTML = isSaved(t) ? ICON.check : ICON.download;
     $('pSave').classList.toggle('fav-on', isSaved(t));
