@@ -31,35 +31,52 @@ Si está sincronizada, la línea actual se resalta y al tocar una línea la canc
 En las canciones de la biblioteca la letra se guarda para verla sin internet.
 
 ## Buscar en internet (pantalla Buscar)
-- **JioSaavn** (fuente inicial): busca canciones y artistas, reproduce el audio disponible y carga más resultados. Incluye un enlace al servicio original. Requiere conexión; el catálogo y la reproducción pueden variar según la región.
-- **Catálogo**: catálogo de iTunes, fragmentos de 30 segundos (no se pueden guardar).
-- **Archivo**: álbumes completos con licencia libre de Internet Archive; con ⬇ se guardan en la biblioteca.
-- **Radio**: emisoras en vivo (Radio Browser). Se puede filtrar por país (o "Todos los países"); sin buscar, muestra las más escuchadas del país elegido. La app recuerda el último país.
 
-## Integración JioSaavn
+- **Invidious** (fuente inicial): busca en YouTube; al tocar un resultado se solicita un stream de audio compatible con el navegador.
+- **Piped**: búsqueda con el filtro musical y paginación mediante continuaciones. Usa el mismo reproductor de audio.
+- **Catálogo**: fragmentos de iTunes de 30 segundos.
+- **Archivo**: álbumes con licencia libre de Internet Archive. Las descargas disponibles se guardan en la biblioteca.
+- **Radio**: emisoras en vivo de Radio Browser, con selección de país.
 
-La app consulta `https://melotune.harshbits.com/api`, un servicio de terceros **no oficial**, con CORS para funcionar en GitHub Pages sin servidor. No requiere ni solicita credenciales de JioSaavn. La búsqueda usa `/search/songs` con paginación; los enlaces de audio antiguos se actualizan mediante `/songs/{id}` antes de reproducir.
+JioSaavn y su servidor anterior se retiraron de las búsquedas y del reproductor.
 
-No se garantiza acceso a todo el catálogo, reproducción continua en segundo plano en todos los dispositivos, ni disponibilidad permanente de esta API. Si falla, se muestra un error y se puede abrir JioSaavn. Las canciones de esta fuente no se descargan a la biblioteca. La reproducción está sujeta a la disponibilidad y condiciones del proveedor.
+## Piped e Invidious: integración experimental
 
-## Mejoras adaptadas de Melotune iOS
+`sources.js` implementa los contratos de [Piped](https://docs.piped.video/docs/api-documentation/) e [Invidious](https://docs.invidious.io/api/). No usa un reproductor de video ni descarga estas canciones a la biblioteca. Resuelve el audio al iniciar cada canción, prefiere AAC/M4A para Safari y solo acepta formatos de audio HTTPS compatibles.
 
-- **Calidad de JioSaavn**: 96, 160 o 320 kbps. Se guarda en este navegador y se aplica al iniciar una canción; si esa calidad falta, se usa la mejor disponible. Cambiarla no interrumpe la canción actual.
-- **Búsquedas recientes**: el campo de JioSaavn ofrece las últimas ocho búsquedas como sugerencias. Se guardan localmente y se pueden borrar con el botón correspondiente.
-- **Servidor de búsquedas**: JioSaavn consulta únicamente `https://melotune.harshbits.com/api`, el mismo servidor de `ApiClient.swift` en Melotune. La búsqueda usa páginas desde cero. No se envían consultas a Audius ni a otro servidor de JioSaavn. Si el servicio falla, se muestra un error para reintentar o abrir JioSaavn.
+Instancias públicas predeterminadas:
 
-Referencia y licencia: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Los efectos nativos de iOS de Melotune requieren Swift/Xcode; esta web adapta su estilo mediante HTML y CSS.
+- Invidious: `https://yt.chocolatemoo53.com`
+- Piped: `https://pipedapi.ducks.party` y `https://api.piped.private.coffee`
 
-## Verificación de la integración
+Si un servidor no entrega formatos de audio, se prueban las otras instancias incluidas, hasta tres solicitudes de siete segundos. Los enlaces de audio pueden ser rechazados posteriormente por el servidor de medios; ese rechazo se informa al usuario. No se implementa evasión de CAPTCHA, inicio de sesión, acceso restringido ni controles de protección.
 
-Con Node.js: `node --test tests/saavn.test.cjs`. Comprueba la selección y persistencia de calidad, renovación de audio, uso exclusivo del servidor de Melotune y paginación y borrado del historial.
+### Estado de la verificación real
 
-## Interfaz estilo Melotune
+Las búsquedas reales funcionaron con CORS en las tres instancias anteriores y devolvieron canciones de Shakira. La reproducción completa **no quedó verificada**:
 
-- **Inicio**: colección, favoritas, últimas canciones agregadas y accesos a Radio, Archivo y Catálogo.
-- **Buscar**: conserva JioSaavn, Catálogo, Archivo y Radio, incluyendo el filtro por país y la paginación.
-- **Biblioteca**: todas las canciones locales, favoritas, búsqueda, importación y eliminación.
-- **Ajustes**: calidad de JioSaavn y borrado del historial de búsquedas.
-- El mini reproductor flota sobre la navegación inferior. El reproductor completo conserva letras, avance, aleatorio, repetición, favoritos y guardado cuando está disponible.
+- Las dos instancias de Piped devolvieron `LOGIN_REQUIRED` al consultar audio de la canción probada.
+- Invidious devolvió formatos de audio, pero la solicitud parcial del stream (siguiendo el redireccionamiento de su proxy) respondió HTTP 403.
 
-La adaptación web toma la paleta esmeralda, superficies translúcidas, tarjetas y navegación de Melotune. Conserva el nombre Mi Música y sus datos locales; no es una reproducción de los efectos nativos de SwiftUI.
+La integración puede mostrar resultados sin que haya audio reproducible. No se promete catálogo completo, ausencia permanente de anuncios ni reproducción en segundo plano con el iPhone bloqueado. Esta última requiere prueba en el dispositivo.
+
+En **Ajustes → Servidores de música** se puede configurar una instancia HTTPS propia compatible. Dejar los campos vacíos restaura los valores públicos. Las direcciones se guardan solo en el navegador; no deben contener usuario, contraseña, consultas ni fragmentos. GitHub Pages sigue sirviendo una web estática, sin un backend propio.
+
+## Herramientas conservadas
+
+- Inicio con colección, favoritas y últimas canciones agregadas.
+- Biblioteca local, importación, búsqueda, favoritos y eliminación.
+- Mini reproductor y reproductor completo con posición, aleatorio, repetición, letras y controles de bloqueo.
+- Calidad del audio en línea (96, 160 o 320 kbps como objetivo, según los formatos disponibles).
+- Ocho búsquedas recientes de Piped/Invidious, guardadas localmente y con opción de borrado.
+- Descargas de Archivo cuando están disponibles, Radio por país y Catálogo.
+
+## Interfaz y créditos
+
+La interfaz adapta la paleta esmeralda, superficies translúcidas, tarjetas y navegación de Melotune. Se conserva la marca Mi Música. Créditos y licencia: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Pruebas
+
+`node --test tests/sources.test.cjs`
+
+Comprueban consultas y paginación de ambas APIs, fallos de instancia, elección de audio compatible, configuración HTTPS, exclusión de streams de video y actualización de servidor. Son pruebas con respuestas simuladas; no certifican la disponibilidad de las instancias públicas.

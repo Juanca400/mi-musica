@@ -77,40 +77,51 @@
   <section id="net" class="hidden" aria-label="Buscar música">
     <div class="section-heading"><div><h2>Encuentra tu próximo favorito</h2><p>Canciones, artistas o una emisora para acompañarte.</p></div></div>
     <div class="sources">
-      <button data-src="saavn" class="on">JioSaavn</button>
+      <button data-src="invidious" class="on">Invidious</button>
+      <button data-src="piped">Piped</button>
       <button data-src="itunes">Catálogo</button>
       <button data-src="free">Archivo</button>
       <button data-src="radio">Radio</button>
     </div>
     <form id="netForm" class="tools search-form" autocomplete="off">
-      <input id="netQ" type="search" list="saavnHistory" enterkeyhint="search" placeholder="Buscar canción o artista" aria-label="Buscar canción o artista">
+      <input id="netQ" type="search" list="onlineHistory" enterkeyhint="search" placeholder="Buscar canción o artista" aria-label="Buscar canción o artista">
       <button class="search-submit" type="submit" aria-label="Buscar"><svg class="ui-icon"><use href="#i-search"/></svg></button>
     </form>
-    <datalist id="saavnHistory"></datalist>
+    <datalist id="onlineHistory"></datalist>
     <div id="radioOpts" class="tools hidden">
       <select id="country" aria-label="País"></select>
     </div>
     <p id="netHint" class="hint muted" role="status"></p>
     <div id="netList" class="list"></div>
-    <div id="saavnActions" class="tools hidden">
+    <div id="onlineActions" class="tools hidden">
       <button id="netMore" class="pill hidden" type="button">Cargar más canciones</button>
-      <a id="saavnLink" class="store-link" href="https://www.jiosaavn.com/" target="_blank" rel="noopener noreferrer">Abrir JioSaavn</a>
+      <button class="text-btn" data-go="settings">Configurar servidores</button>
     </div>
   </section>
 
   <section id="settings" class="hidden" aria-label="Ajustes">
     <div class="section-heading"><div><h2>A tu gusto</h2><p>Los pequeños detalles de tu experiencia.</p></div></div>
     <div class="settings-panel"><h3>Reproducción</h3>
-    <div id="saavnOpts" class="tools">
-      <label for="saavnQuality">Calidad de JioSaavn</label>
-      <select id="saavnQuality" aria-describedby="saavnQualityHint">
-        <option value="96kbps">Ahorro de datos · 96 kbps</option>
-        <option value="160kbps">Equilibrada · 160 kbps</option>
-        <option value="320kbps">Alta · 320 kbps</option>
+    <div id="onlineOpts" class="tools">
+      <label for="onlineQuality">Calidad de audio en línea</label>
+      <select id="onlineQuality" aria-describedby="onlineQualityHint">
+        <option value="96">Ahorro de datos · 96 kbps</option>
+        <option value="160">Equilibrada · 160 kbps</option>
+        <option value="320">Alta · 320 kbps</option>
       </select>
-      <p id="saavnQualityHint" class="muted small">Se aplica al iniciar una canción, según disponibilidad.</p>
-      <button id="clearSaavnHistory" class="pill hidden" type="button">Borrar búsquedas recientes</button>
+      <p id="onlineQualityHint" class="muted small">Se elige el formato de audio compatible más cercano, según disponibilidad.</p>
+      <button id="clearOnlineHistory" class="pill hidden" type="button">Borrar búsquedas recientes</button>
     </div>
+    </div>
+    <div class="settings-panel"><h3>Servidores de música</h3>
+      <p class="muted small">Piped e Invidious son experimentales. La búsqueda puede funcionar aunque el audio esté bloqueado. Puedes usar una instancia propia compatible.</p>
+      <form id="serverForm" class="server-form">
+        <label for="pipedServer">API de Piped (opcional)</label><input id="pipedServer" type="url" placeholder="https://mi-servidor-piped.com" autocomplete="off">
+        <label for="invidiousServer">Servidor Invidious (opcional)</label><input id="invidiousServer" type="url" placeholder="https://mi-servidor-invidious.com" autocomplete="off">
+        <p class="muted small">Deja ambos vacíos para usar las instancias públicas incluidas. La reproducción con el iPhone bloqueado depende del navegador y requiere prueba en el dispositivo.</p>
+        <button class="pill" type="submit">Guardar servidores</button>
+        <p id="serverStatus" class="muted small" role="status"></p>
+      </form>
     </div>
     <div class="settings-panel"><h3>Tu música y tus herramientas</h3><div class="settings-links">
       <button data-import><svg class="ui-icon"><use href="#i-plus"/></svg><span><b>Agregar canciones</b><small>Archivos del teléfono o del computador</small></span></button>
@@ -176,6 +187,7 @@
   </section>
 
   <audio id="audio" preload="auto" playsinline></audio>
+  <script src="sources.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
