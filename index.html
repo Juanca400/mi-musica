@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mi Música">
+<meta name="theme-color" content="#0f0f14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+<title>Mi Música</title>
+</head>
+<body>
+  <header class="top">
+    <h1>Mi Música</h1>
+    <label class="btn-add" for="file">+ Agregar</label>
+    <input id="file" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac" multiple hidden>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button data-tab="all" class="on" role="tab">Todas</button>
+    <button data-tab="fav" role="tab">Favoritas</button>
+    <button data-tab="net" role="tab">🌐 Internet</button>
+  </div>
+
+  <!-- Biblioteca -->
+  <div id="lib">
+    <div class="tools">
+      <input id="search" type="search" placeholder="Buscar en mi biblioteca" autocomplete="off">
+    </div>
+    <main id="list" class="list"></main>
+    <div id="empty" class="empty hidden">
+      <div class="empty-icon">♪</div>
+      <h2>Tu biblioteca está vacía</h2>
+      <p>Toca <b>+ Agregar</b> y elige canciones (MP3, M4A, WAV…) desde la app Archivos o iCloud Drive.</p>
+      <p>O ve a <b>🌐 Internet → Música libre</b> y guarda canciones completas.</p>
+      <p class="muted">Las canciones guardadas funcionan sin internet.</p>
+    </div>
+  </div>
+
+  <!-- Internet -->
+  <div id="net" class="hidden">
+    <div class="sources">
+      <button data-src="itunes" class="on">Canciones</button>
+      <button data-src="free">Música libre</button>
+      <button data-src="radio">Radio</button>
+    </div>
+    <form id="netForm" class="tools" autocomplete="off">
+      <input id="netQ" type="search" enterkeyhint="search" placeholder="Buscar canción o artista">
+    </form>
+    <p id="netHint" class="hint muted"></p>
+    <div id="netList" class="list"></div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Mini reproductor -->
+  <div id="mini" class="mini hidden">
+    <div class="mini-progress"><span id="miniBar"></span></div>
+    <button id="miniOpen" class="mini-info" aria-label="Abrir reproductor">
+      <span id="miniCover" class="cover sm"></span>
+      <span class="mini-text">
+        <span id="miniTitle" class="t"></span>
+        <span id="miniArtist" class="a"></span>
+      </span>
+    </button>
+    <button id="miniPlay" class="icon-btn" aria-label="Reproducir"></button>
+    <button id="miniNext" class="icon-btn" aria-label="Siguiente"></button>
+  </div>
+
+  <!-- Reproductor completo -->
+  <section id="player" class="player" aria-hidden="true">
+    <div class="player-top">
+      <button id="close" class="icon-btn" aria-label="Cerrar"></button>
+      <span id="pLabel" class="muted small">Reproduciendo</span>
+      <button id="pFav" class="icon-btn" aria-label="Favorita"></button>
+      <button id="pSave" class="icon-btn hidden" aria-label="Guardar en mi biblioteca"></button>
+    </div>
+    <div id="pCover" class="cover xl"></div>
+    <div class="p-text">
+      <h2 id="pTitle"></h2>
+      <p id="pArtist" class="muted"></p>
+      <a id="pLink" class="store-link hidden" target="_blank" rel="noopener">Escuchar completa en Apple Music ↗</a>
+    </div>
+    <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Posición">
+    <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+    <div class="controls">
+      <button id="shuffle" class="icon-btn toggle" aria-label="Aleatorio"></button>
+      <button id="prev" class="icon-btn big" aria-label="Anterior"></button>
+      <button id="play" class="play-btn" aria-label="Reproducir"></button>
+      <button id="next" class="icon-btn big" aria-label="Siguiente"></button>
+      <button id="repeat" class="icon-btn toggle" aria-label="Repetir"></button>
+    </div>
+  </section>
+
+  <audio id="audio" preload="auto" playsinline></audio>
+  <script src="app.js"></script>
+</body>
+</html>
