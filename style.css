@@ -65,6 +65,30 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 @keyframes pulse { 50% { opacity: .3; } }
 .store-link { display: inline-block; color: var(--accent); font-size: 14px; margin: -8px 0 16px; text-decoration: none; }
 #seek:disabled { opacity: .35; }
+
+/* Letras */
+.p-extra { display: flex; justify-content: center; margin-top: 18px; }
+.pill { padding: 8px 18px; border-radius: 999px; background: var(--bg3); color: var(--fg); font-size: 15px; font-weight: 600; }
+.pill.on { background: var(--fg); color: var(--bg); }
+.lyrics {
+  position: relative; height: min(78vw, 360px); margin: 18px 0 24px; overflow-y: auto;
+  padding: 40% 4px; scroll-behavior: smooth;
+  -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+          mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+}
+.lyrics { scrollbar-width: none; }
+.lyrics::-webkit-scrollbar { display: none; }
+.lyrics.plain { padding: 8px 4px 40px; }
+.lyr-line {
+  display: block; width: 100%; text-align: left; padding: 6px 0;
+  font-size: 22px; font-weight: 700; line-height: 1.3; color: rgba(255,255,255,.35);
+  transition: color .25s, transform .25s; transform-origin: left center;
+}
+.lyr-line.on { color: var(--fg); transform: scale(1.03); }
+.lyr-line.past { color: rgba(255,255,255,.55); }
+.lyr-plain { white-space: pre-wrap; font-size: 18px; line-height: 1.6; color: var(--fg); }
+.lyr-msg { text-align: center; color: var(--muted); font-size: 16px; padding-top: 30%; }
+.lyr-note { text-align: center; color: var(--muted); font-size: 12px; margin-bottom: 10px; }
 #search {
   width: 100%; padding: 10px 14px; border-radius: 12px; border: 0;
   background: var(--bg2); color: var(--fg); font-size: 16px; outline: none;

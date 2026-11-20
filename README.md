@@ -25,6 +25,11 @@ Dentro de esta carpeta: `python -m http.server 8765` y abre http://localhost:876
 ## Si cambias el código
 Sube los archivos de nuevo. La próxima vez que abras la app con internet cargará la versión nueva.
 
+## Letras
+En el reproductor, el botón **🎤 Letra** muestra la letra de la canción (de [LrcLib](https://lrclib.net), gratis y abierto).
+Si está sincronizada, la línea actual se resalta y al tocar una línea la canción salta a ese momento.
+En las canciones de la biblioteca la letra se guarda para verla sin internet.
+
 ## Buscar en internet (pestaña 🌐 Internet)
 - **Completas**: canciones completas que los artistas suben a Audius (sin clave). Suenan con la pantalla bloqueada; ⬇ aparece cuando el artista permite descargarla.
 - **Catálogo**: catálogo de iTunes, fragmentos de 30 segundos (no se pueden guardar).

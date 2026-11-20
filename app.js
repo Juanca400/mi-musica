@@ -754,6 +754,7 @@ audio.addEventListener('timeupdate', () => {
   }
   const pct = d ? c / d : 0;
   $('miniBar').style.width = (pct * 100) + '%';
+  syncLyrics(c);
   if (!seeking) { $('seek').value = Math.round(pct * 1000); paintSeek(); $('cur').textContent = fmt(c); }
   $('dur').textContent = fmt(d);
   if ('mediaSession' in navigator && navigator.mediaSession.setPositionState && isFinite(d) && d > 0) {
@@ -817,6 +818,7 @@ function updatePlayerUI() {
   $('pLink').classList.toggle('hidden', !(t.kind === 'preview' && t.link));
   if (t.link) $('pLink').href = t.link;
   updateSeekState();
+  applyLyricsView();
 }
 
 function openPlayer() { $('player').classList.add('open'); $('player').setAttribute('aria-hidden', 'false'); }
@@ -851,11 +853,173 @@ $('repeat').addEventListener('click', () => {
 
 // Deslizar hacia abajo para cerrar el reproductor
 let touchY = null;
-$('player').addEventListener('touchstart', e => { if (e.target.id !== 'seek') touchY = e.touches[0].clientY; }, { passive: true });
+$('player').addEventListener('touchstart', e => {
+  if (e.target.id !== 'seek' && !e.target.closest('#lyrics')) touchY = e.touches[0].clientY;
+}, { passive: true });
 $('player').addEventListener('touchend', e => {
   if (touchY !== null && e.changedTouches[0].clientY - touchY > 120) closePlayer();
   touchY = null;
 });
+
+/* ================= Letras sincronizadas (LrcLib) ================= */
+// LrcLib (lrclib.net) es una base de datos de letras gratuita y abierta.
+let lyricsOpen = store.get('lyricsOpen', false);
+let lyr = { key: null, data: null, lines: null };
+let lyrIdx = -1;
+let lyrToken = 0;
+let userScrollUntil = 0;
+const lyrCache = new Map();
+
+const lyrKey = t => t ? (t.kind || 'lib') + ':' + t.id : null;
+const normTxt = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function cleanTitle(s) {
+  return (s || '')
+    .replace(/\s*[([][^)\]]*(feat|ft\.|with|remaster|version|versi[oó]n|live|en vivo|official|video|audio|letra|lyric)[^)\]]*[)\]]/gi, '')
+    .replace(/\s+-\s+(remaster|live|en vivo|radio edit|official).*$/i, '')
+    .trim();
+}
+const mainArtist = s => (s || '').split(/\s*(?:,|&|\by\b|\bx\b|feat\.?|ft\.?)\s*/i)[0].trim();
+const pickLyr = j => ({ synced: j.syncedLyrics || null, plain: j.plainLyrics || null, instrumental: !!j.instrumental });
+
+function parseLRC(txt) {
+  const out = [];
+  for (const raw of txt.split(/\r?\n/)) {
+    const tags = [...raw.matchAll(/\[(\d{1,2}):(\d{2}(?:[.:]\d{1,3})?)\]/g)];
+    if (!tags.length) continue;
+    const text = raw.replace(/\[[^\]]*\]/g, '').trim();
+    for (const m of tags) out.push({ t: +m[1] * 60 + parseFloat(m[2].replace(':', '.')), text });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
+async function fetchLyrics(t) {
+  const title = cleanTitle(t.title), artist = mainArtist(t.artist);
+  if (!title) return null;
+  const base = 'https://lrclib.net/api/';
+  if (artist) {
+    const r = await fetch(`${base}get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`);
+    if (r.ok) {
+      const j = await r.json();
+      if (j.syncedLyrics || j.plainLyrics || j.instrumental) return pickLyr(j);
+    }
+  }
+  const list = await getJSON(`${base}search?q=${encodeURIComponent((title + ' ' + artist).trim())}`);
+  const nt = normTxt(title);
+  const d = isFinite(audio.duration) && audio.duration > 40 ? audio.duration : (t.dur || 0);
+  const score = x => (x.syncedLyrics ? 0 : 1000) + (d ? Math.abs((x.duration || 0) - d) : 0);
+  const best = (list || [])
+    .filter(x => (x.syncedLyrics || x.plainLyrics || x.instrumental) && nt && (normTxt(x.trackName).includes(nt) || nt.includes(normTxt(x.trackName))))
+    .sort((a, b) => score(a) - score(b))[0];
+  return best ? pickLyr(best) : null;
+}
+
+function showLyrMsg(m) {
+  const el = $('lyrics');
+  el.classList.add('plain');
+  lyr.lines = null;
+  el.innerHTML = `<div class="lyr-msg">${esc(m)}</div>`;
+}
+
+function renderLyrics() {
+  const el = $('lyrics'), d = lyr.data;
+  el.classList.remove('plain');
+  if (d.none) return showLyrMsg('No se encontró la letra de esta canción.');
+  // Las vistas previas de 30 s empiezan a mitad de la canción: se muestra la letra sin sincronizar
+  const preview = current && current.kind === 'preview';
+  const plain = d.plain || (d.synced ? parseLRC(d.synced).map(l => l.text).join('\n') : null);
+  if (d.synced && !preview) {
+    lyr.lines = parseLRC(d.synced);
+    if (lyr.lines.length) {
+      el.innerHTML = lyr.lines.map((l, i) => `<button class="lyr-line" data-i="${i}">${esc(l.text) || '♪'}</button>`).join('');
+      lyrIdx = -2;
+      syncLyrics(audio.currentTime, true);
+      return;
+    }
+  }
+  if (plain) {
+    lyr.lines = null;
+    el.classList.add('plain');
+    el.innerHTML = `<div class="lyr-note">${preview ? 'Vista previa: la letra no va sincronizada' : 'Letra sin sincronizar'}</div><div class="lyr-plain">${esc(plain)}</div>`;
+    el.scrollTop = 0;
+    return;
+  }
+  showLyrMsg(d.instrumental ? '♪ Instrumental' : 'No se encontró la letra de esta canción.');
+}
+
+async function loadLyrics() {
+  const t = current, key = lyrKey(t);
+  if (!t || !lyricsOpen || t.kind === 'radio') return;
+  if (lyr.key === key) return; // ya cargada o cargando
+  const token = ++lyrToken;
+  lyr = { key, data: null, lines: null };
+  lyrIdx = -1;
+  let data = (isLib(t) && t.lyrics) || lyrCache.get(key);
+  if (!data) {
+    showLyrMsg('Buscando letra…');
+    try {
+      data = (await fetchLyrics(t)) || { none: true };
+    } catch {
+      if (token !== lyrToken) return;
+      lyr.key = null; // se reintenta al volver a abrir
+      showLyrMsg(navigator.onLine === false ? 'Sin conexión. La letra necesita internet la primera vez.' : 'No se pudo buscar la letra. Intenta de nuevo.');
+      return;
+    }
+    if (token !== lyrToken) return;
+    lyrCache.set(key, data);
+    // En canciones de la biblioteca se guarda la letra para verla sin internet
+    if (isLib(t) && !data.none) { t.lyrics = data; dbPutSong(t).catch(() => {}); }
+  }
+  lyr.data = data;
+  renderLyrics();
+}
+
+function syncLyrics(time, force) {
+  if (!lyricsOpen || !lyr.lines || !lyr.lines.length) return;
+  let i = -1;
+  for (let k = 0; k < lyr.lines.length; k++) { if (lyr.lines[k].t <= time + 0.15) i = k; else break; }
+  if (i === lyrIdx && !force) return;
+  lyrIdx = i;
+  const el = $('lyrics');
+  const nodes = el.children;
+  for (let k = 0; k < nodes.length; k++) {
+    nodes[k].classList.toggle('on', k === i);
+    nodes[k].classList.toggle('past', k < i);
+  }
+  if (!force && Date.now() < userScrollUntil) return;
+  const n = nodes[Math.max(i, 0)];
+  if (n) el.scrollTo({ top: n.offsetTop - el.clientHeight / 2 + n.offsetHeight / 2, behavior: force ? 'auto' : 'smooth' });
+}
+
+function applyLyricsView() {
+  const canLyr = !!current && current.kind !== 'radio';
+  const show = lyricsOpen && canLyr;
+  $('lyrBtn').parentElement.classList.toggle('hidden', !canLyr);
+  $('lyrBtn').classList.toggle('on', lyricsOpen);
+  $('lyrics').classList.toggle('hidden', !show);
+  $('pCover').classList.toggle('hidden', show);
+  if (show) loadLyrics();
+}
+
+$('lyrBtn').addEventListener('click', () => {
+  lyricsOpen = !lyricsOpen;
+  store.set('lyricsOpen', lyricsOpen);
+  applyLyricsView();
+  if (lyricsOpen) syncLyrics(audio.currentTime, true);
+});
+// Tocar una línea salta a ese momento de la canción
+$('lyrics').addEventListener('click', e => {
+  const b = e.target.closest('.lyr-line');
+  if (!b || !lyr.lines) return;
+  const l = lyr.lines[+b.dataset.i];
+  if (!l || !isFinite(audio.duration)) return;
+  audio.currentTime = Math.min(l.t, audio.duration - 0.5);
+  userScrollUntil = 0;
+  syncLyrics(audio.currentTime, true);
+  if (audio.paused) audio.play().catch(() => {});
+});
+// Si el usuario desplaza la letra con el dedo, se pausa el desplazamiento automático unos segundos
+['touchmove', 'wheel'].forEach(ev => $('lyrics').addEventListener(ev, () => { userScrollUntil = Date.now() + 4000; }, { passive: true }));
+audio.addEventListener('seeked', () => syncLyrics(audio.currentTime, true));
 
 /* ================= Pantalla de bloqueo / Centro de Control ================= */
 function updateMediaSession() {
