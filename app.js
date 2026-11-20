@@ -428,12 +428,49 @@ async function radioAPI(path) {
   }
   throw err;
 }
+// ---- Filtro de país para la radio ----
+let radioCountry = store.get('radioCountry', REGION); // '' = todos los países
+let countriesLoaded = false;
+const flag = cc => String.fromCodePoint(...[...cc].map(c => 127397 + c.charCodeAt(0)));
+const regionNames = (() => { try { return new Intl.DisplayNames(['es'], { type: 'region' }); } catch { return null; } })();
+const countryName = (cc, fallback) => { try { return (regionNames && regionNames.of(cc)) || fallback || cc; } catch { return fallback || cc; } };
+
+function fillCountries(list) {
+  const opts = list.slice().sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  if (radioCountry && !opts.some(c => c.code === radioCountry)) opts.unshift({ code: radioCountry, name: countryName(radioCountry) });
+  $('country').innerHTML = '<option value="">🌎 Todos los países</option>' +
+    opts.map(c => `<option value="${c.code}">${flag(c.code)} ${esc(c.name)}</option>`).join('');
+  $('country').value = radioCountry;
+}
+async function loadCountries() {
+  if (countriesLoaded) return;
+  countriesLoaded = true;
+  fillCountries([]);
+  try {
+    const raw = await radioAPI('countries?hidebroken=true');
+    const byCode = new Map();
+    raw.forEach(c => {
+      const code = (c.iso_3166_1 || '').toUpperCase();
+      if (/^[A-Z]{2}$/.test(code) && c.stationcount > 0 && !byCode.has(code)) byCode.set(code, { code, name: countryName(code, c.name) });
+    });
+    fillCountries([...byCode.values()]);
+  } catch {
+    countriesLoaded = false; // se reintenta la próxima vez
+  }
+}
+$('country').addEventListener('change', () => {
+  radioCountry = $('country').value;
+  store.set('radioCountry', radioCountry);
+  netLoaded.radio = true;
+  netSearch($('netQ').value.trim());
+});
+
 async function searchRadio(q) {
-  const base = 'stations/search?hidebroken=true&order=clickcount&reverse=true&limit=60';
+  const cc = radioCountry ? `&countrycode=${radioCountry}` : '';
+  const base = `stations/search?hidebroken=true&order=clickcount&reverse=true&limit=100${cc}`;
   let list;
   if (!q) {
-    list = await radioAPI(`${base}&countrycode=${REGION}`);
-    if (list.length < 5) list = list.concat(await radioAPI(base));
+    list = await radioAPI(base);
   } else {
     const [byName, byTag] = await Promise.all([
       radioAPI(`${base}&name=${encodeURIComponent(q)}`).catch(() => []),
@@ -451,7 +488,10 @@ async function searchRadio(q) {
       kind: 'radio',
       id: 'r' + s.stationuuid,
       title: s.name.trim(),
-      artist: [s.country, (s.tags || '').split(',').filter(Boolean).slice(0, 2).join(', ')].filter(Boolean).join(' · '),
+      artist: [
+        radioCountry ? '' : (s.countrycode ? flag(s.countrycode.toUpperCase()) + ' ' + countryName(s.countrycode.toUpperCase(), s.country) : s.country),
+        (s.tags || '').split(',').filter(Boolean).slice(0, 2).join(', '),
+      ].filter(Boolean).join(' · '),
       thumb: s.favicon && s.favicon.startsWith('https://') ? s.favicon : null,
       coverUrl: s.favicon && s.favicon.startsWith('https://') ? s.favicon : null,
       src: s.url_resolved,
@@ -468,7 +508,9 @@ async function netSearch(q) {
     const items = await fn(q);
     if (token !== netToken) return;
     netItems = items;
-    netStatus = items.length ? '' : 'Sin resultados. Prueba con otras palabras.';
+    netStatus = items.length ? ''
+      : netSrc === 'radio' && radioCountry ? `No hay emisoras disponibles${q ? ' con esa búsqueda' : ''} en ${countryName(radioCountry)}. Prueba con otro país o con "Todos los países".`
+      : 'Sin resultados. Prueba con otras palabras.';
   } catch (e) {
     if (token !== netToken) return;
     netStatus = navigator.onLine === false ? 'Sin conexión a internet.' : 'No se pudo buscar. Intenta de nuevo.';
@@ -479,6 +521,8 @@ async function netSearch(q) {
 
 function openNet() {
   $('netQ').placeholder = PLACEHOLDERS[netSrc];
+  $('radioOpts').classList.toggle('hidden', netSrc !== 'radio');
+  if (netSrc === 'radio') loadCountries();
   if (!netLoaded[netSrc] && netSrc !== 'itunes') { netLoaded[netSrc] = true; netSearch(''); }
   else renderNet();
 }
