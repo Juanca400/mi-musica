@@ -30,7 +30,7 @@ En el reproductor, el botón **🎤 Letra** muestra la letra de la canción (de 
 Si está sincronizada, la línea actual se resalta y al tocar una línea la canción salta a ese momento.
 En las canciones de la biblioteca la letra se guarda para verla sin internet.
 
-## Buscar en internet (pestaña 🌐 Internet)
+## Buscar en internet (pantalla Buscar)
 - **JioSaavn** (fuente inicial): busca canciones y artistas, reproduce el audio disponible y carga más resultados. Incluye un enlace al servicio original. Requiere conexión; el catálogo y la reproducción pueden variar según la región.
 - **Catálogo**: catálogo de iTunes, fragmentos de 30 segundos (no se pueden guardar).
 - **Archivo**: álbumes completos con licencia libre de Internet Archive; con ⬇ se guardan en la biblioteca.
@@ -48,8 +48,18 @@ No se garantiza acceso a todo el catálogo, reproducción continua en segundo pl
 - **Búsquedas recientes**: el campo de JioSaavn ofrece las últimas ocho búsquedas como sugerencias. Se guardan localmente y se pueden borrar con el botón correspondiente.
 - **Servidor de búsquedas**: JioSaavn consulta únicamente `https://melotune.harshbits.com/api`, el mismo servidor de `ApiClient.swift` en Melotune. La búsqueda usa páginas desde cero. No se envían consultas a Audius ni a otro servidor de JioSaavn. Si el servicio falla, se muestra un error para reintentar o abrir JioSaavn.
 
-Referencia y licencia: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). La interfaz y las funciones nativas de iOS de Melotune requieren una app Swift/Xcode y no se incorporan a esta web.
+Referencia y licencia: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Los efectos nativos de iOS de Melotune requieren Swift/Xcode; esta web adapta su estilo mediante HTML y CSS.
 
 ## Verificación de la integración
 
 Con Node.js: `node --test tests/saavn.test.cjs`. Comprueba la selección y persistencia de calidad, renovación de audio, uso exclusivo del servidor de Melotune y paginación y borrado del historial.
+
+## Interfaz estilo Melotune
+
+- **Inicio**: colección, favoritas, últimas canciones agregadas y accesos a Radio, Archivo y Catálogo.
+- **Buscar**: conserva JioSaavn, Catálogo, Archivo y Radio, incluyendo el filtro por país y la paginación.
+- **Biblioteca**: todas las canciones locales, favoritas, búsqueda, importación y eliminación.
+- **Ajustes**: calidad de JioSaavn y borrado del historial de búsquedas.
+- El mini reproductor flota sobre la navegación inferior. El reproductor completo conserva letras, avance, aleatorio, repetición, favoritos y guardado cuando está disponible.
+
+La adaptación web toma la paleta esmeralda, superficies translúcidas, tarjetas y navegación de Melotune. Conserva el nombre Mi Música y sus datos locales; no es una reproducción de los efectos nativos de SwiftUI.

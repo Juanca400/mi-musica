@@ -2,6 +2,8 @@
 
 Las opciones de calidad, el historial limitado a ocho búsquedas y el contrato de la API se adaptaron a JavaScript tomando como referencia [Melotune iOS](https://github.com/Harshshah6/Melotune-IOS), especialmente `Core/API/ApiClient.swift`, `Core/Player/AudioPlayer.swift` y `Core/Storage/Preferences.swift`. Mi Música sigue siendo una PWA independiente. No contiene la interfaz SwiftUI ni el reproductor nativo de Melotune.
 
+La interfaz web también adapta la paleta esmeralda, las superficies de vidrio, las tarjetas, la navegación inferior y la disposición del reproductor de `Theme/Theme.swift`, `Features/RootView.swift`, `Components/MediaCard.swift` y `Features/Player/NowPlayingView.swift`.
+
 ## Licencia de Melotune iOS
 
 MIT License

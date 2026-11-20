@@ -142,6 +142,7 @@ const store = {
 };
 let songs = [];
 let tab = 'all';
+let view = 'home';
 let query = '';
 let queue = [];
 let qi = -1;
@@ -192,6 +193,7 @@ function visibleSongs() {
 }
 
 function render() {
+  renderHome();
   if (tab === 'net') return;
   const list = visibleSongs();
   $('empty').classList.toggle('hidden', songs.length > 0);
@@ -249,13 +251,60 @@ async function removeSong(s) {
   render(); renderNet();
 }
 
-document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
-  tab = b.dataset.tab;
-  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-  $('lib').classList.toggle('hidden', tab === 'net');
-  $('net').classList.toggle('hidden', tab !== 'net');
-  if (tab === 'net') openNet(); else render();
+/* Navegación adaptada de Melotune: inicio, búsqueda, biblioteca y ajustes. */
+function setView(nextView) {
+  view = nextView;
+  if (view === 'net') tab = 'net';
+  else if (tab === 'net') tab = 'all';
+  const panels = { home: 'home', library: 'lib', net: 'net', settings: 'settings' };
+  Object.entries(panels).forEach(([key, id]) => $(id).classList.toggle('hidden', key !== view));
+  document.querySelectorAll('[data-view]').forEach(b => {
+    const active = b.dataset.view === view;
+    b.classList.toggle('on', active);
+    if (active) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  $('viewTitle').textContent = { home: 'Mi Música', net: 'Buscar', library: 'Biblioteca', settings: 'Ajustes' }[view];
+  updateLibraryTabs();
+  if (view === 'net') openNet(); else render();
+  window.scrollTo(0, 0);
+}
+function updateLibraryTabs() {
+  document.querySelectorAll('.tabs button').forEach(b => {
+    const selected = b.dataset.tab === tab;
+    b.classList.toggle('on', selected);
+    b.setAttribute('aria-selected', String(selected));
+  });
+}
+function renderHome() {
+  $('homeCount').textContent = `${songs.length} ${songs.length === 1 ? 'canción guardada' : 'canciones guardadas'}`;
+  const favorites = songs.filter(s => s.fav).length;
+  $('homeFavCount').textContent = `${favorites} ${favorites === 1 ? 'canción elegida' : 'canciones elegidas'}`;
+  const recent = [...songs].sort((a, b) => (b.added || 0) - (a.added || 0)).slice(0, 8);
+  $('homeEmpty').classList.toggle('hidden', !!recent.length);
+  $('homeSongs').classList.toggle('hidden', !recent.length);
+  $('homeSongs').innerHTML = recent.map(s => `<button class="media-card" data-song="${esc(s.id)}"><span class="cover" data-home-cover="${esc(s.id)}"></span><b>${esc(s.title)}</b><small>${esc(s.artist || 'Artista desconocido')}</small></button>`).join('');
+  recent.forEach(s => setCover($('homeSongs').querySelector(`[data-home-cover="${s.id}"]`), s));
+}
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => {
+  if (b.dataset.go === 'favorites') { tab = 'fav'; setView('library'); }
+  else setView(b.dataset.go);
 }));
+document.querySelectorAll('[data-source]').forEach(b => b.addEventListener('click', () => {
+  setView('net');
+  document.querySelector(`.sources button[data-src="${b.dataset.source}"]`).click();
+}));
+document.querySelectorAll('[data-import]').forEach(b => b.addEventListener('click', () => $('file').click()));
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  tab = b.dataset.tab; updateLibraryTabs(); render();
+}));
+$('homeSongs').addEventListener('click', e => {
+  const card = e.target.closest('[data-song]');
+  if (!card) return;
+  const song = songs.find(s => s.id === card.dataset.song);
+  if (!song) return;
+  unlockAudio(); queue = [...songs]; qi = queue.indexOf(song); loadAndPlay();
+});
 $('search').addEventListener('input', e => { query = e.target.value.trim(); render(); });
 
 /* ================= Importar canciones del teléfono ================= */
@@ -609,7 +658,6 @@ $('netMore').addEventListener('click', () => {
 function openNet() {
   $('netQ').placeholder = PLACEHOLDERS[netSrc];
   $('netQ').setAttribute('list', netSrc === 'saavn' ? 'saavnHistory' : '');
-  $('saavnOpts').classList.toggle('hidden', netSrc !== 'saavn');
   $('radioOpts').classList.toggle('hidden', netSrc !== 'radio');
   if (netSrc === 'radio') loadCountries();
   if (!netLoaded[netSrc] && netSrc !== 'itunes') { netLoaded[netSrc] = true; netSearch(''); }
@@ -932,8 +980,28 @@ function updatePlayerUI() {
   applyLyricsView();
 }
 
-function openPlayer() { $('player').classList.add('open'); $('player').setAttribute('aria-hidden', 'false'); }
-function closePlayer() { $('player').classList.remove('open'); $('player').setAttribute('aria-hidden', 'true'); }
+function playerBackground(inert) {
+  document.querySelectorAll('.top, .app-content, .bottom-nav, #mini').forEach(el => { el.inert = inert; });
+}
+function openPlayer() {
+  $('player').classList.add('open'); $('player').setAttribute('aria-hidden', 'false');
+  $('player').inert = false; playerBackground(true);
+  document.body.classList.add('player-open'); $('close').focus();
+}
+function closePlayer() {
+  $('player').classList.remove('open'); $('player').setAttribute('aria-hidden', 'true');
+  $('player').inert = true; playerBackground(false);
+  document.body.classList.remove('player-open'); if (current) $('miniOpen').focus();
+}
+$('player').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.preventDefault(); closePlayer(); }
+  if (e.key !== 'Tab') return;
+  const controls = [...$('player').querySelectorAll('button, input, a[href]')]
+    .filter(el => !el.disabled && !el.closest('.hidden'));
+  const first = controls[0], last = controls[controls.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+});
 
 $('play').innerHTML = ICON.play;
 $('miniPlay').innerHTML = ICON.play;

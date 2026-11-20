@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mi Música">
-<meta name="theme-color" content="#0f0f14">
+<meta name="theme-color" content="#090e0c">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -15,46 +15,93 @@
 <title>Mi Música</title>
 </head>
 <body>
+  <svg class="svg-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-library" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="17" rx="1"/><path d="M12 4v17M16 4l5 16M3 9h5"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9 3-1 3-3 1-2 4 2 2v4l4 3 3-1 3 1 4-3v-4l2-2-2-4-3-1-1-3z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 9l12-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="16" rx="3" ry="3"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.5 4.5a5 5 0 0 0-7 0L12 6l-1.5-1.5a5 5 0 0 0-7 7L12 20l8.5-8.5a5 5 0 0 0 0-7z"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="3"/><path d="m5 8 14-5M7 12h10"/><circle cx="16" cy="16" r="2"/><path d="M7 16h3M7 18h3"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  </svg>
   <header class="top">
-    <h1>Mi Música</h1>
-    <label class="btn-add" for="file">+ Agregar</label>
+    <div class="brand"><span class="brand-mark"><svg class="ui-icon"><use href="#i-note"/></svg></span><div><span class="eyebrow">TU ESPACIO MUSICAL</span><h1 id="viewTitle">Mi Música</h1></div></div>
+    <label class="btn-add" for="file"><svg class="ui-icon"><use href="#i-plus"/></svg><span>Agregar</span></label>
     <input id="file" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac" multiple hidden>
   </header>
 
-  <div class="tabs" role="tablist">
-    <button data-tab="all" class="on" role="tab">Todas</button>
-    <button data-tab="fav" role="tab">Favoritas</button>
-    <button data-tab="net" role="tab">🌐 Internet</button>
-  </div>
+  <main class="app-content">
+  <section id="home" aria-label="Inicio">
+    <div class="home-hero">
+      <div class="hero-copy"><span class="eyebrow">DALE PLAY A TU DÍA</span><h2>Tu música.<br>Tu momento.</h2><p>Lo que te gusta, siempre cerca.<br>Explora, guarda y vuelve a escuchar.</p><button class="primary-btn" data-go="net"><svg class="ui-icon"><use href="#i-search"/></svg>Descubrir música</button></div>
+      <div class="hero-art" aria-hidden="true"><div class="record"><div class="record-label"><svg class="ui-icon"><use href="#i-note"/></svg></div></div><span class="art-caption">MI MÚSICA <span>●</span> HECHA PARA TI</span></div>
+    </div>
+    <div class="section-heading"><div><span class="eyebrow">A TU MANERA</span><h2>Tu colección</h2></div></div>
+    <div class="collection-grid">
+      <button class="collection-card" data-go="library"><span class="collection-icon"><svg class="ui-icon"><use href="#i-library"/></svg></span><span><b>Mi biblioteca</b><small id="homeCount">0 canciones guardadas</small></span></button>
+      <button class="collection-card" data-go="favorites"><span class="collection-icon pink"><svg class="ui-icon"><use href="#i-heart"/></svg></span><span><b>Favoritas</b><small id="homeFavCount">Tus canciones elegidas</small></span></button>
+    </div>
+    <div class="section-heading"><div><h2>Últimas agregadas</h2><p>Tu biblioteca, siempre contigo.</p></div><button class="text-btn" data-go="library">Ver todas</button></div>
+    <div id="homeSongs" class="media-shelf"></div>
+    <div id="homeEmpty" class="home-empty"><span class="empty-note">♪</span><div><h3>El comienzo de tu colección</h3><p>Agrega canciones de tu teléfono y escúchalas sin conexión.</p></div><button class="pill" data-import>Agregar música</button></div>
+    <div class="section-heading"><div><h2>Más por escuchar</h2><p>Elige cómo descubrir tu próxima canción.</p></div></div>
+    <div class="explore-grid">
+      <button class="explore-card radio-card" data-source="radio"><svg class="ui-icon"><use href="#i-radio"/></svg><b>Radio en vivo</b><span>Emisoras de todo el mundo</span></button>
+      <button class="explore-card archive-card" data-source="free"><svg class="ui-icon"><use href="#i-library"/></svg><b>Archivo musical</b><span>Música libre para guardar</span></button>
+      <button class="explore-card catalog-card" data-source="itunes"><svg class="ui-icon"><use href="#i-search"/></svg><b>Explorar catálogo</b><span>Descubre y escucha fragmentos</span></button>
+    </div>
+  </section>
 
   <!-- Biblioteca -->
-  <div id="lib">
-    <div class="tools">
-      <input id="search" type="search" placeholder="Buscar en mi biblioteca" autocomplete="off">
+  <section id="lib" class="hidden" aria-label="Biblioteca">
+    <div class="section-heading"><div><h2>Hecha por ti</h2><p>Tus canciones, guardadas en este dispositivo.</p></div></div>
+    <div class="tabs" role="tablist" aria-label="Filtrar biblioteca">
+      <button data-tab="all" class="on" role="tab" aria-selected="true">Todas</button>
+      <button data-tab="fav" role="tab" aria-selected="false">Favoritas</button>
     </div>
-    <main id="list" class="list"></main>
+    <div class="tools">
+      <input id="search" type="search" aria-label="Buscar en mi biblioteca" placeholder="Buscar en mi biblioteca" autocomplete="off">
+    </div>
+    <div id="list" class="list"></div>
     <div id="empty" class="empty hidden">
       <div class="empty-icon">♪</div>
       <h2>Tu biblioteca está vacía</h2>
       <p>Toca <b>+ Agregar</b> y elige canciones (MP3, M4A, WAV…) desde la app Archivos o iCloud Drive.</p>
-      <p>O ve a <b>🌐 Internet</b> y escucha o guarda canciones completas.</p>
+      <p>También puedes descubrir música en <b>Buscar</b>.</p>
       <p class="muted">Las canciones guardadas funcionan sin internet.</p>
     </div>
-  </div>
+  </section>
 
   <!-- Internet -->
-  <div id="net" class="hidden">
+  <section id="net" class="hidden" aria-label="Buscar música">
+    <div class="section-heading"><div><h2>Encuentra tu próximo favorito</h2><p>Canciones, artistas o una emisora para acompañarte.</p></div></div>
     <div class="sources">
       <button data-src="saavn" class="on">JioSaavn</button>
       <button data-src="itunes">Catálogo</button>
       <button data-src="free">Archivo</button>
       <button data-src="radio">Radio</button>
     </div>
-    <form id="netForm" class="tools" autocomplete="off">
-      <input id="netQ" type="search" list="saavnHistory" enterkeyhint="search" placeholder="Buscar canción o artista">
+    <form id="netForm" class="tools search-form" autocomplete="off">
+      <input id="netQ" type="search" list="saavnHistory" enterkeyhint="search" placeholder="Buscar canción o artista" aria-label="Buscar canción o artista">
+      <button class="search-submit" type="submit" aria-label="Buscar"><svg class="ui-icon"><use href="#i-search"/></svg></button>
     </form>
     <datalist id="saavnHistory"></datalist>
-    <div id="saavnOpts" class="tools hidden">
+    <div id="radioOpts" class="tools hidden">
+      <select id="country" aria-label="País"></select>
+    </div>
+    <p id="netHint" class="hint muted" role="status"></p>
+    <div id="netList" class="list"></div>
+    <div id="saavnActions" class="tools hidden">
+      <button id="netMore" class="pill hidden" type="button">Cargar más canciones</button>
+      <a id="saavnLink" class="store-link" href="https://www.jiosaavn.com/" target="_blank" rel="noopener noreferrer">Abrir JioSaavn</a>
+    </div>
+  </section>
+
+  <section id="settings" class="hidden" aria-label="Ajustes">
+    <div class="section-heading"><div><h2>A tu gusto</h2><p>Los pequeños detalles de tu experiencia.</p></div></div>
+    <div class="settings-panel"><h3>Reproducción</h3>
+    <div id="saavnOpts" class="tools">
       <label for="saavnQuality">Calidad de JioSaavn</label>
       <select id="saavnQuality" aria-describedby="saavnQualityHint">
         <option value="96kbps">Ahorro de datos · 96 kbps</option>
@@ -64,16 +111,22 @@
       <p id="saavnQualityHint" class="muted small">Se aplica al iniciar una canción, según disponibilidad.</p>
       <button id="clearSaavnHistory" class="pill hidden" type="button">Borrar búsquedas recientes</button>
     </div>
-    <div id="radioOpts" class="tools hidden">
-      <select id="country" aria-label="País"></select>
     </div>
-    <p id="netHint" class="hint muted"></p>
-    <div id="netList" class="list"></div>
-    <div id="saavnActions" class="tools hidden">
-      <button id="netMore" class="pill hidden" type="button">Cargar más canciones</button>
-      <a id="saavnLink" class="store-link" href="https://www.jiosaavn.com/" target="_blank" rel="noopener noreferrer">Abrir JioSaavn</a>
-    </div>
-  </div>
+    <div class="settings-panel"><h3>Tu música y tus herramientas</h3><div class="settings-links">
+      <button data-import><svg class="ui-icon"><use href="#i-plus"/></svg><span><b>Agregar canciones</b><small>Archivos del teléfono o del computador</small></span></button>
+      <button data-source="radio"><svg class="ui-icon"><use href="#i-radio"/></svg><span><b>Radio por país</b><small>Encuentra emisoras en vivo</small></span></button>
+      <button data-source="free"><svg class="ui-icon"><use href="#i-library"/></svg><span><b>Archivo musical</b><small>Descarga las canciones disponibles</small></span></button>
+    </div></div>
+    <p class="about-note">Mi Música · Tu biblioteca vive en este dispositivo.<br>Interfaz adaptada de <a href="https://github.com/Harshshah6/Melotune-IOS" target="_blank" rel="noopener noreferrer">Melotune iOS</a> · <a href="THIRD_PARTY_NOTICES.md">Créditos y licencia</a></p>
+  </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Navegación principal">
+    <button data-view="home" class="on" aria-current="page"><svg class="ui-icon"><use href="#i-home"/></svg><span>Inicio</span></button>
+    <button data-view="net"><svg class="ui-icon"><use href="#i-search"/></svg><span>Buscar</span></button>
+    <button data-view="library"><svg class="ui-icon"><use href="#i-library"/></svg><span>Biblioteca</span></button>
+    <button data-view="settings"><svg class="ui-icon"><use href="#i-settings"/></svg><span>Ajustes</span></button>
+  </nav>
 
   <div id="toast" class="toast hidden"></div>
 
@@ -92,7 +145,8 @@
   </div>
 
   <!-- Reproductor completo -->
-  <section id="player" class="player" aria-hidden="true">
+  <section id="player" class="player" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Reproductor" inert>
+    <div class="player-sheet">
     <div class="player-top">
       <button id="close" class="icon-btn" aria-label="Cerrar"></button>
       <span id="pLabel" class="muted small">Reproduciendo</span>
@@ -116,7 +170,8 @@
       <button id="repeat" class="icon-btn toggle" aria-label="Repetir"></button>
     </div>
     <div class="p-extra">
-      <button id="lyrBtn" class="pill">🎤 Letra</button>
+      <button id="lyrBtn" class="pill">Letra sincronizada</button>
+    </div>
     </div>
   </section>
 
