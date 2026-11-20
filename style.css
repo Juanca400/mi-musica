@@ -248,3 +248,9 @@ body.player-open { overflow: hidden; }
 .playback-notice p { margin: 0 0 14px; font-size: 15px; color: #f0ddb7; }
 .playback-notice > div { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
 .playback-notice .store-link { margin: 0; }
+
+.online-version { display: flex; align-items: center; gap: 20px; justify-content: space-between; margin: 0 0 24px; padding: 20px; border-radius: 22px; border: 1px solid #34c75940; background: #172d1e; }
+.online-version b { font-size: 17px; }
+.online-version p { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+.online-version .primary-btn { flex: none; text-decoration: none; white-space: nowrap; }
+@media (max-width: 640px) { .online-version { flex-direction: column; align-items: flex-start; } }

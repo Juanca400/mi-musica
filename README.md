@@ -88,3 +88,11 @@ La canción de la captura se encontró en Invidious (`3aws_FqP8OE`). Al solicita
 ## Prueba de SoundCloud y YouTube.js
 
 El directorio [backend/](backend/README.md) contiene un servidor de prueba para `soundcloud-v2` y `youtubei.js`. SoundCloud entregó audio real en la prueba; YouTube.js no pudo conectarse desde la red del entorno. El servidor está preparado, pero **no está alojado ni conectado a la página de GitHub Pages**. Su documentación explica los endpoints y el despliegue con Python/Node o contenedor.
+
+## Versión alojada con SoundCloud
+
+[Mi Música Online](https://mi-musica-online.edgedshore6.chatgpt.site) es una versión privada en Sites, con la página y la API en el mismo dominio. Requiere iniciar sesión con la cuenta propietaria de ChatGPT. SoundCloud es la fuente inicial; YouTube.js permanece experimental.
+
+La API desplegada se comprobó con «Un Sueño»: búsqueda 200 (18 resultados), resolución 200, manifiesto HLS 200 y bytes de audio 206 (`audio/mp4`). La reproducción en navegador y con iPhone bloqueado sigue pendiente de comprobar; el navegador de QA no pudo abrirse en este entorno.
+
+El alojamiento ejecuta una adaptación JavaScript del servidor: `soundcloud.py` se usó en la prueba previa de Python y YouTube.js se importa en el Worker. El nuevo origen tiene almacenamiento de navegador independiente; las canciones locales existentes permanecen en GitHub Pages. El contenedor de `backend/` es otra opción de despliegue y no es el proceso alojado en Sites.
