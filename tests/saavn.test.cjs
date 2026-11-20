@@ -48,34 +48,41 @@ test('invalid stored quality resets; missing quality uses best safe URL', () => 
   assert.equal(s.run("saavnURL('http://example.com')"), '');
 });
 
-test('network, HTTP-200 error envelopes and malformed data use the alternate API', async () => {
+test('search uses only Melotune with encoded query and zero-based pages', async () => {
+  const s = setup(); s.context.raw = song;
+  s.run(`globalThis.calls = []; getJSON = async (url, timeout) => {
+    calls.push({url, timeout}); return {success:true,data:{total:1,results:[raw]}};
+  };`);
+  const result = await s.run("searchSaavn('A&B canción', 2)");
+  assert.equal(result.items.length, 1);
+  assert.equal(s.context.calls.length, 1);
+  const url = new URL(s.context.calls[0].url);
+  assert.equal(url.origin, 'https://melotune.harshbits.com');
+  assert.equal(url.pathname, '/api/search/songs');
+  assert.equal(url.searchParams.get('query'), 'A&B canción');
+  assert.equal(url.searchParams.get('page'), '1');
+  assert.equal(s.context.calls[0].timeout, 8000);
+  await s.run("searchSaavn('first page')");
+  assert.equal(new URL(s.context.calls[1].url).searchParams.get('page'), '0');
+});
+
+test('failed requests reject without consulting another provider', async () => {
   for (const failure of ['throw new Error("offline")', 'return {success:false}', 'return {success:true,data:{}}']) {
-    const s = setup(); s.context.raw = song;
-    s.run(`globalThis.calls = []; getJSON = async (url, timeout) => {
-      calls.push({url, timeout}); if (calls.length === 1) { ${failure}; }
-      return {success:true,data:{total:1,results:[raw]}};
-    };`);
-    const result = await s.run("searchSaavn('A&B canción', 2)");
-    assert.equal(result.items.length, 1);
-    assert.match(s.context.calls[1].url, /^https:\/\/melotune\.harshbits\.com\/api\/search\/songs\?query=A%26B\+canci%C3%B3n&page=1&limit=50$/);
-    assert.equal(s.context.calls[0].timeout, 8000);
+    const s = setup();
+    s.run(`globalThis.calls = []; getJSON = async url => { calls.push(url); ${failure}; };`);
+    await assert.rejects(s.run("searchSaavn('test')"));
+    assert.equal(s.context.calls.length, 1);
+    assert.equal(new URL(s.context.calls[0]).origin, 'https://melotune.harshbits.com');
   }
 });
 
-test('healthy primary skips alternate; two failing servers reject', async () => {
-  const s = setup();
-  s.run('globalThis.calls = []; getJSON = async url => { calls.push(url); return {success:true,data:{total:0,results:[]}}; };');
-  await s.run("searchSaavn('test')"); assert.equal(s.context.calls.length, 1);
-  s.run('getJSON = async () => { throw new Error("offline"); }');
-  await assert.rejects(s.run("searchSaavn('test')"), /JioSaavn no disponible/);
-});
-
-test('expired song URLs refresh using alternate server and selected quality', async () => {
+test('expired song URLs refresh from Melotune with selected quality', async () => {
   const s = setup({ saavnQuality: '96kbps' }); s.context.raw = song;
   s.run(`globalThis.track = saavnSong(raw); track.resolvedAt = 0; globalThis.calls = [];
-    getJSON = async url => { calls.push(url); if (calls.length === 1) throw new Error('offline'); return {success:true,data:[raw]}; };`);
+    getJSON = async url => { calls.push(url); return {success:true,data:[raw]}; };`);
   assert.equal(await s.run('saavnStream(track)'), 'https://example.com/96.mp4');
-  assert.match(s.context.calls[1], /melotune\.harshbits\.com\/api\/songs\/test$/);
+  assert.equal(s.context.calls.length, 1);
+  assert.equal(s.context.calls[0], 'https://melotune.harshbits.com/api/songs/test');
 });
 
 test('history rejects corrupt storage, limits suggestions and can be cleared', () => {

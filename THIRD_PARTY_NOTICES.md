@@ -1,6 +1,6 @@
 # Referencia Melotune iOS
 
-Las opciones de calidad, el historial limitado a ocho búsquedas y el contrato de la API alternativa se adaptaron a JavaScript tomando como referencia [Melotune iOS](https://github.com/Harshshah6/Melotune-IOS), especialmente `Core/API/ApiClient.swift`, `Core/Player/AudioPlayer.swift` y `Core/Storage/Preferences.swift`. Mi Música sigue siendo una PWA independiente. No contiene la interfaz SwiftUI ni el reproductor nativo de Melotune.
+Las opciones de calidad, el historial limitado a ocho búsquedas y el contrato de la API se adaptaron a JavaScript tomando como referencia [Melotune iOS](https://github.com/Harshshah6/Melotune-IOS), especialmente `Core/API/ApiClient.swift`, `Core/Player/AudioPlayer.swift` y `Core/Storage/Preferences.swift`. Mi Música sigue siendo una PWA independiente. No contiene la interfaz SwiftUI ni el reproductor nativo de Melotune.
 
 ## Licencia de Melotune iOS
 

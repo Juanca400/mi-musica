@@ -300,12 +300,11 @@ function sortSongs() {
 const REGION = (() => { const r = (navigator.language || '').split('-')[1]; return r && /^[a-z]{2}$/i.test(r) ? r.toUpperCase() : 'US'; })();
 const HINTS = {
   saavn: 'Busca canciones o artistas de JioSaavn. La reproducción depende de su disponibilidad en el servicio y en tu región. Requiere internet.',
-  audius: 'Canciones completas que los artistas suben a Audius. Suenan con la pantalla bloqueada. ⬇ aparece si el artista permite descargarla.',
   itunes: 'Busca cualquier canción del catálogo de iTunes. Se escuchan fragmentos de 30 segundos.',
   free: 'Álbumes completos con licencia libre (Internet Archive). Toca ⬇ para guardarlas y oírlas sin internet.',
   radio: 'Emisoras en vivo de todo el mundo. Busca por nombre o género: salsa, vallenato, rock, noticias…',
 };
-const PLACEHOLDERS = { saavn: 'Buscar en JioSaavn: canción o artista', audius: 'Buscar canción, artista o género', itunes: 'Buscar canción o artista', free: 'Buscar género, artista o álbum', radio: 'Buscar emisora o género' };
+const PLACEHOLDERS = { saavn: 'Buscar en JioSaavn: canción o artista', itunes: 'Buscar canción o artista', free: 'Buscar género, artista o álbum', radio: 'Buscar emisora o género' };
 let netSrc = 'saavn';
 let saavnPage = 0;
 let saavnTotal = 0;
@@ -331,8 +330,7 @@ async function getJSON(url, ms = 15000) {
 }
 
 // Servicio de terceros: no es una API oficial ni garantiza todo el catálogo.
-const SAAVN = 'https://saavn.sumit.co/api';
-const SAAVN_SERVERS = [SAAVN, 'https://melotune.harshbits.com/api'];
+const SAAVN = 'https://melotune.harshbits.com/api';
 const SAAVN_QUALITIES = ['96kbps', '160kbps', '320kbps'];
 let saavnQuality = store.get('saavnQuality', '320kbps');
 if (!SAAVN_QUALITIES.includes(saavnQuality)) saavnQuality = '320kbps';
@@ -342,17 +340,13 @@ let saavnHistory = Array.isArray(savedSaavnHistory)
 
 // Endpoints compatibles con Melotune; su búsqueda pagina desde cero.
 async function saavnRequest(path, valid) {
-  for (const server of SAAVN_SERVERS) {
-    try {
-      const url = new URL(server + path);
-      if (server === SAAVN_SERVERS[1] && url.pathname === '/api/search/songs') {
-        url.searchParams.set('page', Math.max(0, Number(url.searchParams.get('page')) - 1));
-      }
-      const j = await getJSON(url.href, 8000);
-      if (j.success && valid(j.data)) return j;
-    } catch {}
+  const url = new URL(SAAVN + path);
+  if (url.pathname === '/api/search/songs') {
+    url.searchParams.set('page', Math.max(0, Number(url.searchParams.get('page')) - 1));
   }
-  throw new Error('JioSaavn no disponible');
+  const j = await getJSON(url.href, 8000);
+  if (!j.success || !valid(j.data)) throw new Error('JioSaavn no disponible');
+  return j;
 }
 function saavnAudio(list) {
   const urls = (Array.isArray(list) ? list : []).filter(x => saavnURL(x.url));
@@ -430,26 +424,6 @@ async function searchItunes(q) {
     coverUrl: (x.artworkUrl100 || '').replace('100x100', '600x600'),
     src: x.previewUrl,
     link: x.trackViewUrl,
-  }));
-}
-
-// Audius: plataforma donde los artistas suben sus canciones completas (API abierta, sin clave)
-const AUDIUS = 'https://api.audius.co/v1';
-const APP = 'app_name=mi-musica';
-async function searchAudius(q) {
-  const j = await getJSON(q
-    ? `${AUDIUS}/tracks/search?query=${encodeURIComponent(q)}&limit=50&${APP}`
-    : `${AUDIUS}/tracks/trending?limit=50&${APP}`);
-  return (j.data || []).filter(t => t.is_streamable !== false).map(t => ({
-    kind: 'free',
-    id: 'au:' + t.id,
-    title: t.title,
-    artist: (t.user && t.user.name) || '',
-    dur: t.duration,
-    thumb: t.artwork && (t.artwork['150x150'] || t.artwork['480x480']),
-    coverUrl: t.artwork && (t.artwork['480x480'] || t.artwork['1000x1000']),
-    src: `${AUDIUS}/tracks/${encodeURIComponent(t.id)}/stream?${APP}`,
-    canSave: !!t.is_downloadable,
   }));
 }
 
@@ -604,7 +578,7 @@ async function netSearch(q, append = false) {
   if (source === 'saavn' && !append) { saavnPage = 0; saavnTotal = 0; saavnQuery = q; }
   renderNet();
   try {
-    const fn = { saavn: searchSaavn, audius: searchAudius, itunes: searchItunes, free: searchFree, radio: searchRadio }[source];
+    const fn = { saavn: searchSaavn, itunes: searchItunes, free: searchFree, radio: searchRadio }[source];
     const result = await fn(q, page);
     if (token !== netToken) return;
     const items = source === 'saavn' ? result.items : result;

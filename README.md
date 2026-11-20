@@ -32,14 +32,13 @@ En las canciones de la biblioteca la letra se guarda para verla sin internet.
 
 ## Buscar en internet (pestaña 🌐 Internet)
 - **JioSaavn** (fuente inicial): busca canciones y artistas, reproduce el audio disponible y carga más resultados. Incluye un enlace al servicio original. Requiere conexión; el catálogo y la reproducción pueden variar según la región.
-- **Completas**: canciones completas que los artistas suben a Audius (sin clave). Suenan con la pantalla bloqueada; ⬇ aparece cuando el artista permite descargarla.
 - **Catálogo**: catálogo de iTunes, fragmentos de 30 segundos (no se pueden guardar).
 - **Archivo**: álbumes completos con licencia libre de Internet Archive; con ⬇ se guardan en la biblioteca.
 - **Radio**: emisoras en vivo (Radio Browser). Se puede filtrar por país (o "Todos los países"); sin buscar, muestra las más escuchadas del país elegido. La app recuerda el último país.
 
 ## Integración JioSaavn
 
-La app consulta `https://saavn.sumit.co/api`, un servicio de terceros **no oficial**, con CORS para funcionar en GitHub Pages sin servidor. No requiere ni solicita credenciales de JioSaavn. La búsqueda usa `/search/songs` con paginación; los enlaces de audio antiguos se actualizan mediante `/songs/{id}` antes de reproducir.
+La app consulta `https://melotune.harshbits.com/api`, un servicio de terceros **no oficial**, con CORS para funcionar en GitHub Pages sin servidor. No requiere ni solicita credenciales de JioSaavn. La búsqueda usa `/search/songs` con paginación; los enlaces de audio antiguos se actualizan mediante `/songs/{id}` antes de reproducir.
 
 No se garantiza acceso a todo el catálogo, reproducción continua en segundo plano en todos los dispositivos, ni disponibilidad permanente de esta API. Si falla, se muestra un error y se puede abrir JioSaavn. Las canciones de esta fuente no se descargan a la biblioteca. La reproducción está sujeta a la disponibilidad y condiciones del proveedor.
 
@@ -47,10 +46,10 @@ No se garantiza acceso a todo el catálogo, reproducción continua en segundo pl
 
 - **Calidad de JioSaavn**: 96, 160 o 320 kbps. Se guarda en este navegador y se aplica al iniciar una canción; si esa calidad falta, se usa la mejor disponible. Cambiarla no interrumpe la canción actual.
 - **Búsquedas recientes**: el campo de JioSaavn ofrece las últimas ocho búsquedas como sugerencias. Se guardan localmente y se pueden borrar con el botón correspondiente.
-- **Servidor alternativo**: si `saavn.sumit.co` falla, la app intenta `https://melotune.harshbits.com/api`, usado por Melotune. La paginación se adapta a cada servidor (el de Melotune comienza en cero). Ambos son servicios de terceros; no garantizan otro catálogo ni acceso a canciones restringidas. Una consulta puede tardar hasta unos 16 segundos antes de fallar.
+- **Servidor de búsquedas**: JioSaavn consulta únicamente `https://melotune.harshbits.com/api`, el mismo servidor de `ApiClient.swift` en Melotune. La búsqueda usa páginas desde cero. No se envían consultas a Audius ni a otro servidor de JioSaavn. Si el servicio falla, se muestra un error para reintentar o abrir JioSaavn.
 
 Referencia y licencia: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). La interfaz y las funciones nativas de iOS de Melotune requieren una app Swift/Xcode y no se incorporan a esta web.
 
 ## Verificación de la integración
 
-Con Node.js: `node --test tests/saavn.test.cjs`. Comprueba la selección y persistencia de calidad, renovación de audio, conmutación de servidores y borrado del historial.
+Con Node.js: `node --test tests/saavn.test.cjs`. Comprueba la selección y persistencia de calidad, renovación de audio, uso exclusivo del servidor de Melotune y paginación y borrado del historial.
